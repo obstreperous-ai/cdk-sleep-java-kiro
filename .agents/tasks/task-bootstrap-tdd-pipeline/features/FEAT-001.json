@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Verify baseline builds and add cdk-assertions dependency to pom.xml, then enable the CDK test",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Run 'mvn compile' to verify the project compiles cleanly with current dependencies",
     "Add the software.amazon.awscdk:assertions dependency (version ${cdk.version}, scope test) to pom.xml after the existing constructs dependency",
@@ -18,5 +18,5 @@
     "mvn test"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "1) CDK v2 bundles assertions in aws-cdk-lib - no separate software.amazon.awscdk:assertions dependency exists for v2 (that artifact only covers CDK v1 up to 1.204.0). Template class is at software.amazon.awscdk.assertions.Template within aws-cdk-lib. 2) NODE_OPTIONS env var is set to '--require /opt/amazon/kiro-agent/proxy-bootstrap.js' in this sandbox but the file does not exist, causing Jsii (Node.js child process) to crash. Fixed by configuring maven-surefire-plugin to clear NODE_OPTIONS. 3) Maven requires proxy config (~/.m2/settings.xml) to reach Maven Central in this sandbox. 4) Future features must run 'mvn test' (not NODE_OPTIONS='' mvn test) since the surefire plugin config handles NODE_OPTIONS clearing."
 }
