@@ -1,18 +1,33 @@
-# Welcome to your CDK Java project!
+# CDK Sleep Audio Pipeline
 
-This is a blank project for CDK development with Java.
+This is an AWS CDK Java project that deploys an event-driven sleep audio processing pipeline. The architecture uses S3 for file storage, EventBridge for event routing, Lambda for audio processing, DynamoDB for metadata and analysis results, and SNS for downstream notifications. When a sleep audio file is uploaded to the input bucket, the pipeline automatically processes it and distributes results to the appropriate storage and notification endpoints.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## TDD Rules
 
-It is a [Maven](https://maven.apache.org/) based project, so you can open this project with any Maven compatible Java IDE to build and run tests.
+This project enforces strict Test-Driven Development:
 
-## Useful commands
+- **Tests before implementation** - Write a failing CDK assertion test before adding any construct to a stack.
+- **Every infrastructure change must have a corresponding test** - No CDK construct is added without an assertion that validates its presence and configuration.
+- **Red-Green-Refactor cycle** - Write a failing test (red), implement the minimum code to pass (green), then refactor while keeping tests green.
 
- * `mvn package`     compile and run tests
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
+Run `mvn test` frequently to validate the current state.
 
-Enjoy!
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a detailed pipeline description and Mermaid diagram.
+
+## Useful Commands
+
+| Command         | Description                                        |
+|-----------------|----------------------------------------------------|
+| `mvn compile`   | Compile the project                                |
+| `mvn test`      | Run CDK assertion tests                            |
+| `mvn package`   | Compile, test, and package                         |
+| `cdk synth`     | Synthesize the CloudFormation template             |
+| `cdk deploy`    | Deploy the stack to your default AWS account       |
+| `cdk diff`      | Compare deployed stack with current state          |
+| `cdk ls`        | List all stacks in the app                         |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for commit conventions, TDD workflow, and development setup.
