@@ -30,6 +30,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
+                    <!--
+                      Clear NODE_OPTIONS to prevent Jsii's Node.js subprocess from failing
+                      when the host environment sets --require to a nonexistent file.
+                      Without this, CDK assertion tests crash during Template.fromStack calls.
+                    -->
                     <environmentVariables>
                         <NODE_OPTIONS></NODE_OPTIONS>
                     </environmentVariables>

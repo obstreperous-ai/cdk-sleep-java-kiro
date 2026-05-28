@@ -4,6 +4,10 @@
 
 This project implements an event-driven sleep audio processing pipeline using AWS CDK (Java). The pipeline automatically processes sleep audio files as they are uploaded, extracts metadata and analysis results, and notifies downstream consumers.
 
+### Implementation Status
+
+**Note:** This document describes the target architecture. Components listed below are planned and will be implemented incrementally via TDD. As each construct is added to the CDK stack, it will be reflected in both the diagram and the test suite.
+
 ### Components and Flow
 
 **S3 Input Bucket** - The entry point of the pipeline. Users or upstream systems upload raw sleep audio files (e.g., WAV, MP3) to this bucket. Each upload triggers the pipeline automatically.
