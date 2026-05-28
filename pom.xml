@@ -32,7 +32,7 @@
                 <configuration>
                     <!--
                       Clear NODE_OPTIONS to prevent Jsii's Node.js subprocess from failing
-                      when the host environment sets --require to a nonexistent file.
+                      when the host environment sets a "require" flag pointing to a nonexistent file.
                       Without this, CDK assertion tests crash during Template.fromStack calls.
                     -->
                     <environmentVariables>
