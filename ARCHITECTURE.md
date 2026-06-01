@@ -13,7 +13,7 @@ This project implements a production-grade, event-driven sleep audio processing 
    - Amazon Polly for text-to-speech and soothing voice generation
    - Optional Amazon Bedrock for AI-generated sleep sounds or audio enhancement
 4. Processed audio is saved to an output S3 bucket with versioning enabled.
-5. Metadata (duration, user_id, processing status, timestamps) is stored in DynamoDB.
+5. Metadata (duration, user_id, processing status, timestamps) is stored in DynamoDB. The `user_id` is an optional field derived from S3 object metadata set at upload time.
 6. Completion or error notifications are sent via SNS.
 
 The pipeline supports multi-environment deployment (dev/stage/prod) driven by CDK context values, allowing teams to iterate safely in lower environments before promoting to production.
@@ -29,17 +29,17 @@ The following describes how data moves through the system from initial upload to
 3. **Event Routing**: EventBridge evaluates the event against content-based filtering rules (e.g., file extension, prefix, size constraints) and routes matching events to the Step Functions state machine.
 4. **Orchestration Start**: Step Functions begins execution with the event payload containing the bucket name, object key, and event metadata.
 5. **Validate Input** (Lambda): The first state validates the uploaded file (checks file format, size limits, required metadata tags) and extracts basic properties. On validation failure, the state machine transitions to the error notification path.
-6. **Processing Choice**: A Choice state evaluates the input type and processing configuration:
+6. **Processing Choice**: A Choice state evaluates the input type and routes to exactly one processing branch (mutually exclusive):
    - If the upload includes a text script for voice generation, route to Polly TTS.
-   - If AI enhancement is enabled (feature flag), route to Bedrock Enhancement.
-   - Both paths can execute in parallel when applicable.
-7. **Polly TTS** (Lambda): Invokes Amazon Polly with Neural TTS to generate soothing voice audio from provided text scripts. Supports multiple voices and languages.
-8. **Bedrock Enhancement** (Lambda, optional): Invokes Amazon Bedrock foundation models to generate AI sleep sounds or enhance existing audio with ambient layers. This step is gated by an environment feature flag.
-9. **Metadata Extraction** (Lambda): Extracts final metadata (duration, format, sample rate, processing timestamps) from the processed audio and prepares the DynamoDB record.
-10. **Store Processed Audio**: The processed audio file is written to the S3 Output Bucket with versioning enabled, preserving all historical versions.
-11. **Write Metadata**: Processing results and metadata (duration, user_id, processing status, timestamps, output location) are written to the DynamoDB Table.
-12. **Publish Notification**: An SNS notification is published indicating successful completion, including a reference to the processed file location.
-13. **Error Handling**: If any step fails after configured retries, the state machine transitions to an error handler that publishes a failure notification via SNS with error details and context for debugging.
+   - Otherwise, route to Bedrock Enhancement for AI-generated audio (only available when the Bedrock branch is synthesized; see Feature Flags).
+7. **Polly TTS** (Lambda): Invokes Amazon Polly with Neural TTS to generate soothing voice audio from provided text scripts. Supports multiple voices and languages. On completion, writes the processed audio file to the S3 Output Bucket.
+8. **Bedrock Enhancement** (Lambda, optional): Invokes Amazon Bedrock foundation models to generate AI sleep sounds or enhance existing audio with ambient layers. This step is only present in the deployed state machine when `bedrockEnabled` is true at CDK synth time (see Feature Flags). On completion, writes the processed audio file to the S3 Output Bucket.
+9. **Metadata Extraction** (Lambda): Reads the processed audio from the S3 Output Bucket and extracts final metadata (duration, format, sample rate, processing timestamps). Prepares the DynamoDB record.
+10. **Write Metadata**: Processing results and metadata (duration, user_id, processing status, timestamps, output location) are written to the DynamoDB Table. The `user_id` field is derived from S3 object metadata set by the uploading client (see below).
+11. **Publish Notification**: An SNS notification is published indicating successful completion, including a reference to the processed file location.
+12. **Error Handling**: If any step fails after configured retries, the state machine transitions to an error handler that publishes a failure notification via SNS with error details and context for debugging.
+
+**Note on `user_id`:** The `user_id` field referenced in metadata is an optional value populated via S3 object metadata (the `x-amz-meta-user-id` header) set by the uploading client at upload time. When no user identity is provided, the field is stored as null. In a future iteration, when Amazon Cognito is added (see Future Extensibility), `user_id` will be derived from the authenticated identity of the caller.
 
 ---
 
@@ -103,7 +103,6 @@ The following describes how data moves through the system from initial upload to
 
 - Error rate threshold alarms on each Lambda function (e.g., >5% error rate over 5 minutes).
 - Step Functions execution failure alarm (any failed execution in prod triggers alert).
-- DLQ message depth alarm for any configured dead-letter queues.
 - Polly/Bedrock throttling alarms to detect service limit pressure.
 
 ### Tracing
@@ -158,7 +157,7 @@ cdk deploy -c environment=dev
 
 ### Feature Flags
 
-- `bedrockEnabled`: Controls whether the Bedrock Enhancement step is included in the Step Functions state machine. Disabled in dev to reduce costs.
+- `bedrockEnabled`: A CDK synth-time flag. When set to `true`, the Bedrock Enhancement Lambda, its IAM role, and the corresponding Choice branch are synthesized into the CloudFormation template. When set to `false`, these resources are omitted entirely from the deployed stack (no Lambda deployed, no IAM role created, no cost incurred). The Choice state in the diagram routes between Polly TTS and Bedrock Enhancement based on input type (text script present vs not); this routing logic is only present when `bedrockEnabled` is true. Changing this flag requires a CDK redeploy.
 - `pollyVoiceType`: Selects Standard (dev/stage) or Neural (prod) voice engine.
 - `alarmActionsEnabled`: Enables or disables alarm notification actions (disabled in dev to reduce noise).
 
@@ -232,10 +231,12 @@ flowchart TD
     SFN --> Validate
     Validate -->|"Valid Input"| Choice
     Choice -->|"Text Script Provided"| PollyTTS
-    Choice -->|"AI Enhancement Enabled"| BedrockEnhance
+    Choice -->|"No Text Script"| BedrockEnhance
+    PollyTTS -->|"Stores Processed Audio"| S3Output
+    BedrockEnhance -->|"Stores Processed Audio"| S3Output
     PollyTTS --> MetadataExtract
     BedrockEnhance --> MetadataExtract
-    MetadataExtract -->|"Stores Processed Audio"| S3Output
+    MetadataExtract -->|"Reads Processed Audio"| S3Output
     MetadataExtract -->|"Writes Metadata"| DDB
     MetadataExtract -->|"Publishes Notification"| SNSTopic
     SNSTopic --> SuccessPath
