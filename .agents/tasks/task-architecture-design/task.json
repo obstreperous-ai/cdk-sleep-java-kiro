@@ -1,0 +1,7 @@
+{
+  "task_id": "task-architecture-design",
+  "task_description": "Create comprehensive architecture documentation for the Event-Driven Sleep Audio Pipeline including detailed Mermaid diagram and update AGENT_GUIDELINES.md to reference it as source of truth. Documentation-only changes - no CDK code modifications.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

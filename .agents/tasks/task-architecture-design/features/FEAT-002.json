@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Update .github/AGENT_GUIDELINES.md to reference ARCHITECTURE.md as the authoritative source of truth for all future implementation issues",
+  "status": "pending",
+  "steps": [
+    "Read the current /projects/sandbox/cdk-sleep-java-kiro/.github/AGENT_GUIDELINES.md",
+    "Add a new section titled '## Architecture as Source of Truth' after the existing 'Architecture Sync' section",
+    "The new section must include: (a) A statement that ARCHITECTURE.md is the single source of truth for the system design and must be consulted before implementing any new feature or infrastructure change. (b) All future implementation issues derive their technical requirements from ARCHITECTURE.md. (c) If an implementation conflicts with ARCHITECTURE.md, the architecture document takes precedence and should be updated first if the design needs to change. (d) A markdown link to ARCHITECTURE.md: [ARCHITECTURE.md](../ARCHITECTURE.md)",
+    "Preserve all existing content in AGENT_GUIDELINES.md - only add the new section"
+  ],
+  "acceptance_criteria": [
+    "AGENT_GUIDELINES.md contains a new 'Architecture as Source of Truth' section",
+    "The section explicitly states ARCHITECTURE.md is the authoritative reference for all future issues",
+    "The section includes a relative link to ../ARCHITECTURE.md",
+    "All previously existing content in the file is preserved unchanged",
+    "The section clarifies that architecture document takes precedence over implementation if conflicts arise"
+  ],
+  "verification": [
+    "mvn compile",
+    "mvn test"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

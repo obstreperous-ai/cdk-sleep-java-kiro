@@ -1,0 +1,22 @@
+{
+  "project_type": "AWS CDK Java project (Maven-based, Java 17+)",
+  "language": "Java",
+  "build_system": "Maven 3.9+ with maven-surefire-plugin (clears NODE_OPTIONS for Jsii compatibility)",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack pattern in src/test/java/com/myorg/)",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "Run 'mvn compile' to verify project still compiles; run 'mvn test' to verify existing tests still pass. This is a docs-only task so no new tests are expected.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Java 17 and Maven 3.9+ available in sandbox via mise. Run 'mvn compile' to verify baseline.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - can reach Maven Central. NODE_OPTIONS issue handled by surefire plugin config. No Docker daemon needed for this task (docs only).",
+  "contribution_requirements": "Conventional commits required (docs: prefix for documentation changes). ARCHITECTURE.md Mermaid diagram must stay in sync with code. TDD workflow required for code changes (not applicable here - docs only).",
+  "key_patterns": "Project uses flowchart TD Mermaid diagrams for architecture. AGENT_GUIDELINES.md references architecture sync rules. README.md links to ARCHITECTURE.md. CONTRIBUTING.md references AGENT_GUIDELINES.md.",
+  "relevant_files": [
+    "ARCHITECTURE.md",
+    ".github/AGENT_GUIDELINES.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    "cdk.json"
+  ],
+  "directory_structure": "Root: ARCHITECTURE.md, README.md, CONTRIBUTING.md, pom.xml, cdk.json. Source: src/main/java/com/myorg/ (CdkBaseApp.java, CdkBaseStack.java). Tests: src/test/java/com/myorg/ (CdkBaseTest.java). CI: .github/workflows/ci.yml. Agent guidelines: .github/AGENT_GUIDELINES.md."
+}
