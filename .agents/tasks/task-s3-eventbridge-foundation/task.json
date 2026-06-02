@@ -1,0 +1,7 @@
+{
+  "task_id": "task-s3-eventbridge-foundation",
+  "task_description": "Implement foundational infrastructure for the Sleep Audio Pipeline: S3 Input Bucket (encrypted, versioned, EventBridge-enabled), S3 Output Bucket (encrypted, versioned), and EventBridge Rule triggered on Object Created events from the Input Bucket. Follow strict TDD with tests first.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
