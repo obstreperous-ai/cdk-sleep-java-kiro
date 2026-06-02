@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Implement S3 Input/Output Buckets and EventBridge Rule following strict TDD. Write failing tests first in CdkBaseTest.java, then implement the minimal CDK code in CdkBaseStack.java to make them pass.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Write failing tests in src/test/java/com/myorg/CdkBaseTest.java. Add the following test methods using CDK assertions (Template.fromStack, hasResourceProperties, resourceCountIs): (a) testInputBucketExists - verify an S3 bucket resource exists with BucketEncryption configured for SSE-KMS (or aws:kms), VersioningConfiguration Status Enabled, and PublicAccessBlockConfiguration all set to true. (b) testOutputBucketExists - verify a second S3 bucket resource exists with encryption and versioning. (c) testEventBridgeRuleExists - verify an AWS::Events::Rule resource exists with an EventPattern that matches s3 Object Created events from the input bucket, and State ENABLED. (d) testEventBridgeNotificationEnabled - verify the input bucket has NotificationConfiguration or that EventBridge notifications are enabled (the CDK L2 construct sets this up via a custom resource or bucket property). Use Map.of() for property maps. Import java.util.Map and java.util.List as needed.",
     "Step 2 - Run 'mvn test' and confirm all new tests FAIL (red phase). The existing testStackSynthesizes should still pass. Document which tests fail and why.",
@@ -27,5 +27,5 @@
     "eval \"$(mise activate bash)\" && cd /projects/sandbox/cdk-sleep-java-kiro && unset NODE_OPTIONS && cdk synth"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "CDK 2.257.0 Java API uses enforceSsl() not enforceSSL(). The eventBridgeEnabled(true) on a Bucket creates a Custom::S3BucketNotifications resource (via a Lambda-backed custom resource) that can be asserted with resourceCountIs. Tests use Map.of() and List.of() for CDK assertion property maps."
 }
