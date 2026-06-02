@@ -41,3 +41,11 @@ Follow strict Test-Driven Development:
 - Every time a CDK construct is added, removed, or modified, update the Mermaid diagram in `ARCHITECTURE.md` to reflect the change.
 - The diagram must always represent the current state of deployed infrastructure.
 - If you add a new resource type, add it to both the plain-text description and the Mermaid diagram.
+
+## Architecture as Source of Truth
+
+[ARCHITECTURE.md](../ARCHITECTURE.md) is the single source of truth for the system design. Consult it before implementing any new feature or infrastructure change.
+
+- All future implementation issues derive their technical requirements from ARCHITECTURE.md.
+- If an implementation conflicts with ARCHITECTURE.md, the architecture document takes precedence. If the design needs to change, update ARCHITECTURE.md first via a separate `docs:` commit before proceeding with the implementation.
+- Do not introduce constructs, resources, or patterns that contradict the architecture without updating the document first.

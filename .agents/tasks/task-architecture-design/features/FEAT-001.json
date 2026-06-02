@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-001",
+  "type": "docs",
+  "description": "Comprehensive rewrite of ARCHITECTURE.md with detailed event-driven sleep audio pipeline design using Step Functions, Polly, Bedrock, and a professional Mermaid diagram",
+  "status": "completed",
+  "steps": [
+    "Completely rewrite /projects/sandbox/cdk-sleep-java-kiro/ARCHITECTURE.md with the following sections in order:",
+    "1. Title: '# Architecture: Event-Driven Sleep Audio Pipeline'",
+    "2. High-Level Overview section: Describe the full production-grade event-driven pipeline. Users upload raw audio files (voice recordings, ambient sounds) to an input S3 bucket. EventBridge detects uploads and triggers an AWS Step Functions state machine. The state machine orchestrates multiple processing steps including Amazon Polly for text-to-speech/soothing voice generation, optional Amazon Bedrock for AI-generated sleep sounds or audio enhancement, and basic metadata extraction/validation. Processed audio is saved to an output S3 bucket with versioning enabled. Metadata (duration, user_id, processing status, timestamps) stored in DynamoDB. Completion or error notifications sent via SNS. Multi-environment support (dev/stage/prod) via CDK context.",
+    "3. Data Flow section: Numbered step-by-step explanation of how data moves through the system, from upload through EventBridge routing, Step Functions orchestration (with parallel/choice states), individual processing steps (Polly TTS, Bedrock enhancement, metadata extraction), output storage, DynamoDB write, and SNS notification.",
+    "4. AWS Services and Justification section: Table or list of each AWS service used (S3 input bucket, S3 output bucket, EventBridge, Step Functions, Lambda functions within Step Functions, Amazon Polly, Amazon Bedrock, DynamoDB, SNS, CloudWatch, IAM, KMS) with a brief justification for why each was chosen over alternatives.",
+    "5. Security section: Describe least-privilege IAM roles (separate roles for each Lambda, Step Functions execution role), encryption at rest (S3 SSE-KMS, DynamoDB encryption, SNS encryption), private buckets (block public access), VPC considerations if applicable, and secrets management approach.",
+    "6. Observability section: CloudWatch Logs for all Lambda functions and Step Functions executions, CloudWatch Metrics and custom metrics for processing duration/error rates, CloudWatch Alarms for error rate thresholds and DLQ depth, X-Ray tracing for end-to-end request visibility.",
+    "7. Cost Considerations section: Brief notes on cost drivers (S3 storage, Step Functions state transitions, Lambda invocations, Polly characters, Bedrock inference), cost optimization strategies (S3 lifecycle policies, reserved capacity for Polly if high volume, right-sizing Lambda memory).",
+    "8. Multi-Environment Strategy section: Describe how CDK context (cdk.json or -c flags) drives environment-specific configuration for dev/stage/prod (bucket names, alarm thresholds, retention periods, feature flags for Bedrock).",
+    "9. Future Extensibility section: Notes on planned extensions (API Gateway for direct upload, Cognito for user auth, CloudFront for audio delivery, additional audio processing models, batch processing support).",
+    "10. Implementation Status section: Note that this document describes the target architecture and components will be implemented incrementally via TDD.",
+    "11. Mermaid Diagram section: Create a comprehensive 'flowchart TD' diagram that includes: Input Layer (S3 Input Bucket), Event Routing Layer (EventBridge Rule), Orchestration Layer (Step Functions State Machine with sub-nodes for Validate Input state, Polly TTS state, Bedrock Enhancement state as optional/choice, Metadata Extraction state), Output Layer (S3 Output Bucket with versioning, DynamoDB Table), Notification Layer (SNS Topic with success/error paths), Security Layer (IAM Roles, KMS Keys), Observability Layer (CloudWatch Logs, CloudWatch Alarms). Use subgraph blocks for logical grouping. Label all arrows with descriptive event/action names. Ensure it renders cleanly on GitHub.",
+    "The Mermaid diagram must use 'flowchart TD' syntax (not 'architecture' syntax which has limited GitHub support). Use subgraph blocks for logical grouping. Keep node labels concise but descriptive. Use different arrow styles for data flow vs event flow where appropriate.",
+    "Ensure the textual description and the Mermaid diagram are fully consistent - every component mentioned in text appears in the diagram and vice versa."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md contains all sections: High-Level Overview, Data Flow, AWS Services and Justification, Security, Observability, Cost Considerations, Multi-Environment Strategy, Future Extensibility, Implementation Status, and Mermaid Diagram",
+    "Mermaid diagram uses 'flowchart TD' syntax and includes: S3 Input Bucket, EventBridge Rule, Step Functions State Machine (with internal states for validation, Polly, Bedrock, metadata extraction), S3 Output Bucket, DynamoDB Table, SNS Topic, CloudWatch, and IAM/KMS",
+    "Step Functions is the primary processing orchestrator (not standalone Lambda)",
+    "Amazon Polly and Bedrock are explicitly included as processing capabilities",
+    "Security section covers least-privilege IAM, encryption at rest (KMS), and private buckets",
+    "Multi-environment support via CDK context is documented",
+    "Text description and diagram are consistent with each other",
+    "File renders cleanly as valid Markdown with the Mermaid block rendering on GitHub"
+  ],
+  "verification": [
+    "mvn compile",
+    "mvn test"
+  ],
+  "blocked_reason": null,
+  "findings": "Maven Central is unreachable from this sandbox (connection timeout to repo.maven.apache.org:443) despite COMMON_DEPENDENCIES network mode. Build/test verification skipped as this is a documentation-only change with zero code modifications. The ARCHITECTURE.md rewrite is complete with all required sections and Mermaid diagram."
+}
