@@ -1,6 +1,7 @@
 package com.myorg;
 
 import software.constructs.Construct;
+import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
 import software.amazon.awscdk.services.s3.Bucket;
@@ -10,6 +11,7 @@ import software.amazon.awscdk.services.events.Rule;
 import software.amazon.awscdk.services.events.EventPattern;
 import software.amazon.awscdk.services.events.targets.CloudWatchLogGroup;
 import software.amazon.awscdk.services.logs.LogGroup;
+import software.amazon.awscdk.services.logs.RetentionDays;
 
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,8 @@ public class CdkBaseStack extends Stack {
 
         // CloudWatch LogGroup as a placeholder target for the EventBridge rule
         LogGroup ruleLogGroup = LogGroup.Builder.create(this, "SleepAudioEventLogGroup")
+                .retention(RetentionDays.ONE_WEEK)
+                .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
 
         // EventBridge Rule - triggers on S3 Object Created events from the input bucket

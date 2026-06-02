@@ -28,9 +28,26 @@ public class CdkBaseTest {
     }
 
     @Test
-    public void testInputBucketExists() {
-        // Verify an S3 bucket with encryption, versioning, public access block,
-        // and EventBridge notifications enabled
+    public void testInputBucketHasEventBridgeEnabled() {
+        // The input bucket is distinguished from the output bucket by having
+        // EventBridge notifications enabled. CDK implements this via a
+        // Custom::S3BucketNotifications resource with EventBridgeConfiguration.
+        template.resourceCountIs("Custom::S3BucketNotifications", 1);
+        template.hasResourceProperties("Custom::S3BucketNotifications", Match.objectLike(Map.of(
+            "BucketName", Match.anyValue(),
+            "NotificationConfiguration", Match.objectLike(Map.of(
+                "EventBridgeConfiguration", Match.objectLike(Map.of())
+            ))
+        )));
+    }
+
+    @Test
+    public void testBothBucketsHaveSecurityProperties() {
+        // Verify there are exactly 2 S3 buckets
+        template.resourceCountIs("AWS::S3::Bucket", 2);
+
+        // Verify at least one bucket has encryption, versioning, and public access block.
+        // Both buckets share these security properties.
         template.hasResourceProperties("AWS::S3::Bucket", Map.of(
             "BucketEncryption", Map.of(
                 "ServerSideEncryptionConfiguration", List.of(
@@ -52,28 +69,42 @@ public class CdkBaseTest {
     }
 
     @Test
-    public void testOutputBucketExists() {
-        // Verify there are exactly 2 S3 buckets (input and output)
-        template.resourceCountIs("AWS::S3::Bucket", 2);
-    }
-
-    @Test
     public void testEventBridgeRuleExists() {
         // Verify an EventBridge rule exists that matches S3 Object Created events
-        template.hasResourceProperties("AWS::Events::Rule", Map.of(
-            "EventPattern", Map.of(
+        // and includes a detail filter scoped to a specific bucket
+        template.hasResourceProperties("AWS::Events::Rule", Match.objectLike(Map.of(
+            "EventPattern", Match.objectLike(Map.of(
                 "source", List.of("aws.s3"),
-                "detail-type", List.of("Object Created")
-            ),
+                "detail-type", List.of("Object Created"),
+                "detail", Match.objectLike(Map.of(
+                    "bucket", Match.objectLike(Map.of(
+                        "name", Match.anyValue()
+                    ))
+                ))
+            )),
             "State", "ENABLED"
-        ));
+        )));
     }
 
     @Test
-    public void testInputBucketHasEventBridgeEnabled() {
-        // When eventBridgeEnabled(true) is set on a CDK Bucket, it creates
-        // a custom resource that enables EventBridge notifications.
-        // This manifests as a Custom::S3BucketNotifications resource in the template.
-        template.resourceCountIs("Custom::S3BucketNotifications", 1);
+    public void testBucketPoliciesEnforceSsl() {
+        // enforceSsl(true) on both buckets generates BucketPolicy resources
+        // with a Deny statement for non-SSL requests (aws:SecureTransport=false)
+        template.resourceCountIs("AWS::S3::BucketPolicy", 2);
+
+        template.hasResourceProperties("AWS::S3::BucketPolicy", Match.objectLike(Map.of(
+            "PolicyDocument", Match.objectLike(Map.of(
+                "Statement", Match.arrayWith(List.of(
+                    Match.objectLike(Map.of(
+                        "Effect", "Deny",
+                        "Condition", Match.objectLike(Map.of(
+                            "Bool", Match.objectLike(Map.of(
+                                "aws:SecureTransport", "false"
+                            ))
+                        ))
+                    ))
+                ))
+            ))
+        )));
     }
 }
