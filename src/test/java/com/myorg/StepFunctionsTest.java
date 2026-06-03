@@ -7,6 +7,8 @@ import software.amazon.awscdk.assertions.Match;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.List;
 import java.util.Map;
 
@@ -37,11 +39,13 @@ public class StepFunctionsTest {
 
     @Test
     public void testStateMachineDefinitionContainsPollyTask() {
-        // The DefinitionString may be a CloudFormation intrinsic (Fn::Join).
-        // We verify the state machine has a DefinitionString property (which means it has a definition).
-        template.hasResourceProperties("AWS::StepFunctions::StateMachine", Match.objectLike(Map.of(
-            "DefinitionString", Match.anyValue()
-        )));
+        // Verify the state machine definition references Polly synthesizeSpeech
+        // The DefinitionString is a Fn::Join intrinsic, so we check the raw template JSON
+        String templateJson = template.toJSON().toString();
+        assertTrue(templateJson.contains("polly"),
+            "State machine definition should reference polly service");
+        assertTrue(templateJson.contains("synthesizeSpeech"),
+            "State machine definition should reference synthesizeSpeech action");
     }
 
     @Test
