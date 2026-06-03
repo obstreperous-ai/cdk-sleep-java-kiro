@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Implement S3 Input/Output Buckets and EventBridge Rule following strict TDD. Write failing tests first in CdkBaseTest.java, then implement the minimal CDK code in CdkBaseStack.java to make them pass.",
+  "status": "completed",
+  "steps": [
+    "Step 1 - Write failing tests in src/test/java/com/myorg/CdkBaseTest.java. Add the following test methods using CDK assertions (Template.fromStack, hasResourceProperties, resourceCountIs): (a) testInputBucketExists - verify an S3 bucket resource exists with BucketEncryption configured for SSE-KMS (or aws:kms), VersioningConfiguration Status Enabled, and PublicAccessBlockConfiguration all set to true. (b) testOutputBucketExists - verify a second S3 bucket resource exists with encryption and versioning. (c) testEventBridgeRuleExists - verify an AWS::Events::Rule resource exists with an EventPattern that matches s3 Object Created events from the input bucket, and State ENABLED. (d) testEventBridgeNotificationEnabled - verify the input bucket has NotificationConfiguration or that EventBridge notifications are enabled (the CDK L2 construct sets this up via a custom resource or bucket property). Use Map.of() for property maps. Import java.util.Map and java.util.List as needed.",
+    "Step 2 - Run 'mvn test' and confirm all new tests FAIL (red phase). The existing testStackSynthesizes should still pass. Document which tests fail and why.",
+    "Step 3 - Implement the S3 Input Bucket in src/main/java/com/myorg/CdkBaseStack.java. Use the L2 Bucket construct (software.amazon.awscdk.services.s3.Bucket) with: bucketName not hardcoded (let CDK generate), encryption set to BucketEncryption.S3_MANAGED or KMS, versioned(true), blockPublicAccess(BlockPublicAccess.BLOCK_ALL), enforceSSL(true), eventBridgeEnabled(true). Give it logical ID 'SleepAudioInputBucket'.",
+    "Step 4 - Implement the S3 Output Bucket in CdkBaseStack.java with similar properties: encryption, versioning, blockPublicAccess, enforceSSL. Logical ID 'SleepAudioOutputBucket'. No eventBridgeEnabled needed for output bucket.",
+    "Step 5 - Implement the EventBridge Rule in CdkBaseStack.java. Use software.amazon.awscdk.services.events.Rule with an event pattern matching source 'aws.s3', detailType 'Object Created', and detail matching the input bucket. For the target, use a placeholder - either an empty targets list or a simple stub (e.g., a CloudWatch LogGroup target from software.amazon.awscdk.services.events.targets). The rule should be enabled.",
+    "Step 6 - Run 'mvn test' and confirm ALL tests pass (green phase). Fix any test assertions that need adjustment based on actual synthesized CloudFormation properties.",
+    "Step 7 - Run 'cdk synth' (with unset NODE_OPTIONS) and verify successful synthesis.",
+    "Step 8 - Refactor if needed while keeping tests green."
+  ],
+  "acceptance_criteria": [
+    "CdkBaseTest.java contains at least 4 test methods: testStackSynthesizes (existing), testInputBucketExists, testOutputBucketExists, testEventBridgeRuleExists",
+    "Tests verify encryption, versioning, and public access block on both buckets",
+    "Tests verify EventBridge rule event pattern matches S3 Object Created events",
+    "Running 'mvn test' passes all tests with 0 failures",
+    "CdkBaseStack.java contains SleepAudioInputBucket and SleepAudioOutputBucket L2 constructs",
+    "CdkBaseStack.java contains an EventBridge Rule triggered by S3 Object Created events from the input bucket",
+    "'cdk synth' succeeds without errors"
+  ],
+  "verification": [
+    "eval \"$(mise activate bash)\" && cd /projects/sandbox/cdk-sleep-java-kiro && mvn test",
+    "eval \"$(mise activate bash)\" && cd /projects/sandbox/cdk-sleep-java-kiro && unset NODE_OPTIONS && cdk synth"
+  ],
+  "blocked_reason": null,
+  "findings": "CDK 2.257.0 Java API uses enforceSsl() not enforceSSL(). The eventBridgeEnabled(true) on a Bucket creates a Custom::S3BucketNotifications resource (via a Lambda-backed custom resource) that can be asserted with resourceCountIs. Tests use Map.of() and List.of() for CDK assertion property maps."
+}

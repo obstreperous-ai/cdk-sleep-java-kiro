@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to reflect the implemented S3 buckets and EventBridge rule. Add an Implementation Status section showing what has been deployed vs what remains planned.",
+  "status": "completed",
+  "steps": [
+    "Step 1 - Update the 'Implementation Status' section at the bottom of ARCHITECTURE.md to list the implemented components: S3 Input Bucket (with encryption, versioning, EventBridge notifications), S3 Output Bucket (with encryption, versioning), and EventBridge Rule (Object Created trigger). Mark remaining components (Step Functions, Lambda functions, DynamoDB, SNS, etc.) as 'Planned'.",
+    "Step 2 - Review the existing Mermaid diagram in ARCHITECTURE.md. Since it already shows the full target architecture including S3 buckets and EventBridge Rule, add a note or styling to distinguish implemented vs planned components. Alternatively, add a small 'Implemented Components' sub-diagram or annotate with a legend. Keep it minimal - the main diagram already correctly shows the data flow.",
+    "Step 3 - Ensure consistency: the diagram node names (S3Input, S3Output, EBRule) match the logical resource names used in CDK (SleepAudioInputBucket, SleepAudioOutputBucket). Add inline comments or a mapping table if helpful.",
+    "Step 4 - Verify the ARCHITECTURE.md renders correctly (no broken Mermaid syntax)."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md Implementation Status section lists S3 Input Bucket, S3 Output Bucket, and EventBridge Rule as implemented",
+    "The Mermaid diagram remains valid and correctly shows the event flow from S3 Input to EventBridge Rule",
+    "Remaining planned components (Step Functions, Lambda, DynamoDB, SNS, etc.) are clearly marked as planned/not yet implemented"
+  ],
+  "verification": [
+    "Read ARCHITECTURE.md and confirm Implementation Status is updated with implemented components"
+  ],
+  "blocked_reason": null,
+  "findings": "Docs-only change. Used classDef with stroke-dasharray for planned nodes and solid green for implemented nodes. Added legend as Mermaid comments since Mermaid does not have native legend support."
+}

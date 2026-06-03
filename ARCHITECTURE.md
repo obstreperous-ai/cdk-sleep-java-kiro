@@ -178,7 +178,29 @@ The architecture is designed to support the following planned extensions:
 
 ## Implementation Status
 
-This document describes the target architecture. Components will be implemented incrementally following the project's test-driven development (TDD) workflow. As each construct is added to the CDK stack, corresponding unit tests will be written first (red), then the infrastructure code implemented (green), and finally refactored as needed. The Mermaid diagram and textual descriptions will be kept in sync with the implemented components.
+This document describes the target architecture. Components are implemented incrementally following the project's test-driven development (TDD) workflow. The Mermaid diagram below uses green styling for implemented components and gray/dashed styling for planned components.
+
+### Implemented
+
+| Component | CDK Logical ID | Configuration |
+|-----------|---------------|---------------|
+| **S3 Input Bucket** | `SleepAudioInputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement, EventBridge notifications enabled |
+| **S3 Output Bucket** | `SleepAudioOutputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement |
+| **EventBridge Rule** | `SleepAudioInputRule` | Triggers on Object Created events from Input Bucket, placeholder CloudWatch LogGroup target |
+
+### Planned
+
+| Component | Notes |
+|-----------|-------|
+| Step Functions State Machine | Orchestrates multi-step audio processing workflow |
+| Lambda: Validate Input | Validates uploaded file format, size, and metadata |
+| Lambda: Polly TTS | Invokes Amazon Polly Neural TTS for voice generation |
+| Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged) |
+| Lambda: Metadata Extraction | Extracts final audio metadata, writes to DynamoDB |
+| DynamoDB Table | Metadata and processing status storage |
+| SNS Topic | Completion and error notifications |
+| CloudWatch Alarms | Error rate and throttling alarms |
+| KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3); will migrate to CMK per environment |
 
 ---
 
@@ -264,4 +286,15 @@ flowchart TD
     PollyTTS -.->|"Assumes"| IAMRoles
     BedrockEnhance -.->|"Assumes"| IAMRoles
     MetadataExtract -.->|"Assumes"| IAMRoles
+
+    %% Styling: Green for implemented components, gray/dashed for planned
+    classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
+    classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
+
+    class S3Input,S3Output,EBRule implemented
+    class SFN,Validate,Choice,PollyTTS,BedrockEnhance,MetadataExtract,DDB,SNSTopic,SuccessPath,ErrorPath,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
+
+    %% Legend:
+    %% Green (solid border) = Implemented
+    %% Gray (dashed border) = Planned
 ```
