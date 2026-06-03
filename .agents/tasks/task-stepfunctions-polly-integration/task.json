@@ -9,6 +9,6 @@
     "tests": "pass",
     "test_quality": "pass",
     "docker_build": "skipped",
-    "summary": "All 10 tests pass (5 existing + 5 new). CDK synth succeeds. Tests meaningfully verify: state machine exists, has logging, EventBridge targets it, and IAM policy grants polly:synthesizeSpeech."
+    "summary": "All 10 tests pass (5 existing + 5 new). CDK synth succeeds. Tests verify: state machine exists, has logging, definition contains polly/synthesizeSpeech, EventBridge targets it, and IAM policy grants polly:synthesizeSpeech. Semantic review v2 APPROVED."
   }
 }
