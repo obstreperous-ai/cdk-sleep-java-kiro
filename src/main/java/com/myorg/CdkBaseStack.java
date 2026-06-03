@@ -9,9 +9,15 @@ import software.amazon.awscdk.services.s3.BucketEncryption;
 import software.amazon.awscdk.services.s3.BlockPublicAccess;
 import software.amazon.awscdk.services.events.Rule;
 import software.amazon.awscdk.services.events.EventPattern;
-import software.amazon.awscdk.services.events.targets.CloudWatchLogGroup;
+import software.amazon.awscdk.services.events.RuleTargetInput;
+import software.amazon.awscdk.services.events.targets.SfnStateMachine;
 import software.amazon.awscdk.services.logs.LogGroup;
 import software.amazon.awscdk.services.logs.RetentionDays;
+import software.amazon.awscdk.services.stepfunctions.DefinitionBody;
+import software.amazon.awscdk.services.stepfunctions.LogLevel;
+import software.amazon.awscdk.services.stepfunctions.LogOptions;
+import software.amazon.awscdk.services.stepfunctions.StateMachine;
+import software.amazon.awscdk.services.stepfunctions.tasks.CallAwsService;
 
 import java.util.List;
 import java.util.Map;
@@ -41,10 +47,32 @@ public class CdkBaseStack extends Stack {
                 .enforceSsl(true)
                 .build();
 
-        // CloudWatch LogGroup as a placeholder target for the EventBridge rule
-        LogGroup ruleLogGroup = LogGroup.Builder.create(this, "SleepAudioEventLogGroup")
+        // CloudWatch LogGroup for Step Functions state machine logs
+        LogGroup stateMachineLogGroup = LogGroup.Builder.create(this, "SleepAudioPipelineLogGroup")
                 .retention(RetentionDays.ONE_WEEK)
                 .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+
+        // Polly SynthesizeSpeech task using CallAwsService
+        CallAwsService pollyTask = CallAwsService.Builder.create(this, "SynthesizeSpeech")
+                .service("polly")
+                .action("synthesizeSpeech")
+                .parameters(Map.of(
+                        "OutputFormat", "mp3",
+                        "Text", "placeholder text for sleep audio",
+                        "VoiceId", "Joanna"
+                ))
+                .iamResources(List.of("*"))
+                .resultPath("$.pollyResult")
+                .build();
+
+        // Step Functions State Machine with Polly task and logging
+        StateMachine stateMachine = StateMachine.Builder.create(this, "SleepAudioPipelineStateMachine")
+                .definitionBody(DefinitionBody.fromChainable(pollyTask))
+                .logs(LogOptions.builder()
+                        .destination(stateMachineLogGroup)
+                        .level(LogLevel.ALL)
+                        .build())
                 .build();
 
         // EventBridge Rule - triggers on S3 Object Created events from the input bucket
@@ -59,7 +87,9 @@ public class CdkBaseStack extends Stack {
                         ))
                         .build())
                 .enabled(true)
-                .targets(List.of(new CloudWatchLogGroup(ruleLogGroup)))
+                .targets(List.of(SfnStateMachine.Builder.create(stateMachine)
+                        .input(RuleTargetInput.fromEventPath("$.detail"))
+                        .build()))
                 .build();
     }
 }

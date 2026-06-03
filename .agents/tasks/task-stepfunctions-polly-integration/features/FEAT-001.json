@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add Step Functions state machine with Polly integration and wire EventBridge rule target. This is a single coherent feature following strict TDD: write failing tests first, then implement to make them pass, then update ARCHITECTURE.md.",
+  "status": "in_progress",
+  "steps": [
+    "Step 1 - Write failing tests in src/test/java/com/myorg/CdkBaseTest.java (or a new test class src/test/java/com/myorg/StepFunctionsTest.java): (a) Verify an AWS::StepFunctions::StateMachine resource exists in the template with logging configuration. (b) Verify the state machine definition contains at least one Task state that invokes Polly (look for the DefinitionString or Definition property containing a state with Resource referencing polly). (c) Verify the EventBridge rule target is the Step Functions state machine (AWS::Events::Rule Targets array includes an Arn referencing the state machine). (d) Verify IAM role with least-privilege permissions for the state machine (polly:SynthesizeSpeech, logs:CreateLogGroup, logs:CreateLogDelivery, etc.). Run 'mvn test' and confirm these new tests FAIL.",
+    "Step 2 - Implement the Step Functions state machine in src/main/java/com/myorg/CdkBaseStack.java: (a) Import aws_stepfunctions and aws_stepfunctions_tasks classes. (b) Create a CloudWatch LogGroup for state machine logs. (c) Create a StateMachine using StateMachine.Builder with a definition that includes a CallAwsService task or custom state for Polly StartSpeechSynthesisTask/SynthesizeSpeech with placeholder parameters (text='placeholder', voiceId='Joanna', outputFormat='mp3'). The simplest approach is to use CallAwsService from aws_stepfunctions_tasks to call polly:synthesizeSpeech. (d) Enable logging on the state machine (LogLevel.ALL). (e) The state machine execution role should have least-privilege IAM (polly:SynthesizeSpeech). CDK L2 constructs handle role creation automatically with CallAwsService.",
+    "Step 3 - Wire EventBridge rule to target the state machine: (a) Replace the existing CloudWatchLogGroup target on the EventBridge rule with a SfnStateMachine target from aws_events_targets. (b) Use RuleTargetInput to pass the event detail (bucket name, object key) as input to the state machine. (c) The placeholder CloudWatch LogGroup for the rule target can be removed if no longer needed.",
+    "Step 4 - Run 'mvn test' and confirm ALL tests pass (both existing and new ones).",
+    "Step 5 - Run 'NODE_OPTIONS= cdk synth' and confirm it succeeds.",
+    "Step 6 - Update ARCHITECTURE.md: (a) Move 'Step Functions State Machine' from the Planned table to the Implemented table with its configuration details. (b) Update the Mermaid diagram to mark SFN and the Polly task as implemented (green/solid). (c) Add a short section describing the orchestration layer (state machine definition: Start -> Polly SynthesizeSpeech -> End). (d) Update the EventBridge rule description to note it now targets the state machine instead of a CloudWatch LogGroup."
+  ],
+  "acceptance_criteria": [
+    "mvn test passes with all new tests verifying: state machine exists, has Polly task, EventBridge targets state machine, IAM role has polly:SynthesizeSpeech",
+    "NODE_OPTIONS= cdk synth succeeds cleanly",
+    "ARCHITECTURE.md Mermaid diagram shows SFN and Polly task as implemented (green styling)",
+    "EventBridge rule target is SfnStateMachine (not CloudWatch LogGroup)",
+    "State machine has logging enabled with a dedicated CloudWatch LogGroup",
+    "Least-privilege IAM role - only necessary permissions granted"
+  ],
+  "verification": [
+    "cd /projects/sandbox/cdk-sleep-java-kiro && eval \"$(mise activate bash)\" && mise use java@17 && mvn test",
+    "cd /projects/sandbox/cdk-sleep-java-kiro && eval \"$(mise activate bash)\" && mise use java@17 && NODE_OPTIONS= npx cdk synth"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

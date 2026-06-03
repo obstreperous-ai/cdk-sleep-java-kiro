@@ -1,0 +1,7 @@
+{
+  "task_id": "task-stepfunctions-polly-integration",
+  "task_description": "Implement a Step Functions state machine skeleton triggered by the EventBridge rule, with a minimal Amazon Polly integration as a Task state. Follow strict TDD, update ARCHITECTURE.md with Mermaid diagram.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null
+}
