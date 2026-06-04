@@ -1,0 +1,22 @@
+{
+  "project_type": "AWS CDK Java application - event-driven sleep audio processing pipeline",
+  "language": "Java 17",
+  "build_system": "Maven 3.9.10 with maven-compiler-plugin (release 17), maven-surefire-plugin, exec-maven-plugin. Requires proxy config in ~/.m2/settings.xml for network access.",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack, Match). Tests in src/test/java/com/myorg/. Pattern: @BeforeEach creates stack and template, @Test methods use template.hasResourceProperties/resourceCountIs.",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "1. Run 'mvn test' - all tests must pass. 2. Run 'cdk synth' (requires Node.js + CDK CLI installed) to verify CloudFormation synthesis.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Maven proxy already configured in ~/.m2/settings.xml. Dependencies downloaded. Run 'mvn test' to verify baseline.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode. Maven Central accessible via proxy (configured in ~/.m2/settings.xml). Java 25 is default but project targets Java 17 (maven-compiler-plugin release=17). NODE_OPTIONS must be cleared for tests (handled by surefire plugin config in pom.xml).",
+  "contribution_requirements": "Strict TDD: write failing tests FIRST, then implement. Conventional commits. Update ARCHITECTURE.md Mermaid diagram for every construct change. Every CDK construct must have a corresponding assertion test. ARCHITECTURE.md is the source of truth.",
+  "key_patterns": "Single stack (CdkBaseStack) contains all constructs. Tests use Template.fromStack(stack) pattern with Match utilities. L2 constructs preferred. CallAwsService used for AWS SDK integrations in Step Functions. EventBridge rule uses RuleTargetInput.fromEventPath('$.detail') to pass S3 event detail to state machine.",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/test/java/com/myorg/CdkBaseTest.java",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml"
+  ],
+  "directory_structure": "src/main/java/com/myorg/ - CDK app (CdkBaseApp.java) and stack (CdkBaseStack.java). src/test/java/com/myorg/ - CDK assertion tests (CdkBaseTest.java for S3/EventBridge, StepFunctionsTest.java for state machine). Root: pom.xml, cdk.json, ARCHITECTURE.md, CONTRIBUTING.md."
+}
