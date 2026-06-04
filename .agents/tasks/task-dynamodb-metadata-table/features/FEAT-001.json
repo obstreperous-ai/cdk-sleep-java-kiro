@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Add DynamoDB metadata table and integrate it with the Step Functions state machine using TDD workflow. Write failing CDK assertion tests first, then implement the DynamoDB table construct (SleepAudioMetadataTable) with on-demand billing, encryption, and point-in-time recovery. Extend the state machine to include DynamoDB PutItem/UpdateItem tasks for writing initial metadata records and updating status. Update EventBridge input transformer to pass full S3 event data. Finally, update ARCHITECTURE.md with the new DynamoDB metadata layer.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Create a new test file src/test/java/com/myorg/DynamoDbMetadataTest.java. Write failing tests that assert: (a) a DynamoDB table resource exists with partition key 'audioId' (type S), (b) billing mode is PAY_PER_REQUEST, (c) server-side encryption is enabled (AWS_OWNED), (d) point-in-time recovery is enabled, (e) removal policy is RETAIN. Follow the same @BeforeEach / Template.fromStack pattern used in CdkBaseTest.java and StepFunctionsTest.java.",
     "Step 2 - Add additional failing tests in DynamoDbMetadataTest.java that verify state machine integration: (a) the synthesized template JSON contains 'dynamodb:PutItem' (indicating a DynamoDB PutItem task in the state machine definition), (b) an IAM policy exists granting dynamodb:PutItem and dynamodb:UpdateItem to the state machine role scoped to the table, (c) the state machine definition contains 'dynamodb:UpdateItem' for status updates.",
@@ -29,5 +29,5 @@
     "Run 'mvn compile' and confirm clean compilation with no errors"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 18 tests pass (5 CdkBaseTest + 5 StepFunctionsTest + 8 DynamoDbMetadataTest). Used pointInTimeRecovery(true) which triggers deprecation warnings in CDK (recommends pointInTimeRecoverySpecification instead) but still works correctly. The DynamoDB table uses TableEncryption.DEFAULT for AWS-owned encryption. CallAwsService tasks use iamResources(List.of('*')) since the table ARN is resolved at deploy time; grantReadWriteData provides the scoped permissions. Java Map.of() produces unordered maps but CDK handles parameter serialization correctly."
 }
