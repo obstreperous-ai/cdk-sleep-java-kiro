@@ -1,0 +1,26 @@
+{
+  "project_type": "Java CDK infrastructure-as-code project for a sleep audio processing pipeline",
+  "language": "Java 17",
+  "build_system": "Maven 3.9.10. Proxy configured in ~/.m2/settings.xml for COMMON_DEPENDENCIES network. Surefire plugin clears NODE_OPTIONS for Jsii compatibility.",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack pattern). Tests in src/test/java/com/myorg/. CDK assertions library is bundled in aws-cdk-lib.",
+  "build_command": "cd /projects/sandbox/cdk-sleep-java-kiro && eval \"$(mise activate bash)\" && mise use java@17 && mvn compile",
+  "test_command": "cd /projects/sandbox/cdk-sleep-java-kiro && eval \"$(mise activate bash)\" && mise use java@17 && mvn test",
+  "verification_instructions": "1. Run 'mvn test' to execute all CDK assertion tests. 2. Run 'NODE_OPTIONS= cdk synth' to verify CloudFormation template synthesizes. 3. Verify ARCHITECTURE.md Mermaid diagram reflects implemented resources.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "1. mise use java@17 (already configured). 2. ~/.m2/settings.xml has proxy config. 3. CDK CLI installed globally. 4. Unset NODE_OPTIONS before running cdk commands.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - Maven Central accessible via HTTP proxy. NODE_OPTIONS must be unset for cdk synth/CLI. Java 17 via mise. No Docker daemon needed for this task.",
+  "contribution_requirements": "1. Strict TDD: write failing tests FIRST, then implement minimal code. 2. Conventional commits (feat:, fix:, docs:). 3. ARCHITECTURE.md must stay in sync with implemented constructs. 4. Use L2 constructs. 5. Least-privilege IAM.",
+  "key_patterns": "CdkBaseStack is the main stack in com.myorg. CdkBaseApp entry point. Tests use Template.fromStack(stack) then template.hasResourceProperties(). CDK version [2.255.0,3.0.0). EventBridge rule already exists with CloudWatch LogGroup target - needs to be changed to target the new state machine. S3 input/output buckets already exist.",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/java/com/myorg/CdkBaseApp.java",
+    "src/test/java/com/myorg/CdkBaseTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml",
+    "cdk.json",
+    ".github/workflows/ci.yml",
+    ".github/AGENT_GUIDELINES.md",
+    "CONTRIBUTING.md"
+  ],
+  "directory_structure": "src/main/java/com/myorg/ - CDK app and stack definitions. src/test/java/com/myorg/ - JUnit 5 CDK assertion tests. Root has ARCHITECTURE.md, CONTRIBUTING.md, pom.xml, cdk.json."
+}

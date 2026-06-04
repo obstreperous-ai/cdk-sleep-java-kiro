@@ -1,0 +1,14 @@
+{
+  "task_id": "task-stepfunctions-polly-integration",
+  "task_description": "Implement a Step Functions state machine skeleton triggered by the EventBridge rule, with a minimal Amazon Polly integration as a Task state. Follow strict TDD, update ARCHITECTURE.md with Mermaid diagram.",
+  "status": "completed",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 10 tests pass (5 existing + 5 new). CDK synth succeeds. Tests verify: state machine exists, has logging, definition contains polly/synthesizeSpeech, EventBridge targets it, and IAM policy grants polly:synthesizeSpeech. Semantic review v2 APPROVED."
+  }
+}
