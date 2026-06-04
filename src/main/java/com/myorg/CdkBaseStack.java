@@ -92,7 +92,7 @@ public class CdkBaseStack extends Stack {
                 .build();
 
         putItemTask.addRetry(RetryProps.builder()
-                .errors(List.of("States.ALL"))
+                .errors(List.of("DynamoDB.ProvisionedThroughputExceededException", "DynamoDB.InternalServerError", "States.Timeout"))
                 .maxAttempts(3)
                 .backoffRate(2.0)
                 .build());
@@ -134,7 +134,7 @@ public class CdkBaseStack extends Stack {
                 .build();
 
         updateItemTask.addRetry(RetryProps.builder()
-                .errors(List.of("States.ALL"))
+                .errors(List.of("DynamoDB.ProvisionedThroughputExceededException", "DynamoDB.InternalServerError", "States.Timeout"))
                 .maxAttempts(3)
                 .backoffRate(2.0)
                 .build());

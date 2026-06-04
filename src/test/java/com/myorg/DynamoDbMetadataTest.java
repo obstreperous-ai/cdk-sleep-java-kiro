@@ -89,7 +89,24 @@ public class DynamoDbMetadataTest {
                             "dynamodb:PutItem",
                             "dynamodb:UpdateItem"
                         )),
-                        "Effect", "Allow"
+                        "Effect", "Allow",
+                        "Resource", Match.anyValue()
+                    ))
+                ))
+            ))
+        )));
+
+        // Verify the Resource is not a wildcard "*" - it should reference the DynamoDB table
+        template.hasResourceProperties("AWS::IAM::Policy", Match.objectLike(Map.of(
+            "PolicyDocument", Match.objectLike(Map.of(
+                "Statement", Match.arrayWith(List.of(
+                    Match.objectLike(Map.of(
+                        "Action", Match.arrayWith(List.of(
+                            "dynamodb:PutItem",
+                            "dynamodb:UpdateItem"
+                        )),
+                        "Effect", "Allow",
+                        "Resource", Match.not(Match.exact("*"))
                     ))
                 ))
             ))
