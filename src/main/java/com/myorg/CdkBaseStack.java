@@ -25,6 +25,7 @@ import software.amazon.awscdk.services.dynamodb.AttributeType;
 import software.amazon.awscdk.services.dynamodb.TableEncryption;
 import software.amazon.awscdk.services.stepfunctions.JsonPath;
 import software.amazon.awscdk.services.stepfunctions.Chain;
+import software.amazon.awscdk.services.stepfunctions.RetryProps;
 
 import java.util.List;
 import java.util.Map;
@@ -86,9 +87,15 @@ public class CdkBaseStack extends Stack {
                                 "createdAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime"))
                         )
                 ))
-                .iamResources(List.of("*"))
+                .iamResources(List.of(metadataTable.getTableArn()))
                 .resultPath("$.putItemResult")
                 .build();
+
+        putItemTask.addRetry(RetryProps.builder()
+                .errors(List.of("States.ALL"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
 
         // Polly SynthesizeSpeech task using CallAwsService
         CallAwsService pollyTask = CallAwsService.Builder.create(this, "SynthesizeSpeech")
@@ -122,9 +129,15 @@ public class CdkBaseStack extends Stack {
                                 ":updatedAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime"))
                         )
                 ))
-                .iamResources(List.of("*"))
+                .iamResources(List.of(metadataTable.getTableArn()))
                 .resultPath("$.updateItemResult")
                 .build();
+
+        updateItemTask.addRetry(RetryProps.builder()
+                .errors(List.of("States.ALL"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
 
         // Chain: PutItem -> Polly -> UpdateItem
         Chain chain = Chain.start(putItemTask)
