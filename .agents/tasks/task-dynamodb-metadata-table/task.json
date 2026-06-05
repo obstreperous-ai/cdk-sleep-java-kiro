@@ -1,0 +1,14 @@
+{
+  "task_id": "task-dynamodb-metadata-table",
+  "task_description": "Add a DynamoDB table (SleepAudioMetadataTable) for storing audio pipeline metadata and extend the Step Functions state machine with DynamoDB PutItem/UpdateItem tasks for input/output handling. Follow strict TDD with tests first.",
+  "status": "completed",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 18 tests pass (5 CdkBaseTest + 5 StepFunctionsTest + 8 DynamoDbMetadataTest). Build compiles cleanly. Tests verify DynamoDB table properties (key schema, billing mode, PITR, retention policy), state machine DynamoDB task integration (PutItem/UpdateItem in definition), and IAM permissions. Each test would fail if the corresponding construct or configuration were removed."
+  }
+}

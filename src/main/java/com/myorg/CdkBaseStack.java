@@ -18,6 +18,14 @@ import software.amazon.awscdk.services.stepfunctions.LogLevel;
 import software.amazon.awscdk.services.stepfunctions.LogOptions;
 import software.amazon.awscdk.services.stepfunctions.StateMachine;
 import software.amazon.awscdk.services.stepfunctions.tasks.CallAwsService;
+import software.amazon.awscdk.services.dynamodb.Table;
+import software.amazon.awscdk.services.dynamodb.BillingMode;
+import software.amazon.awscdk.services.dynamodb.Attribute;
+import software.amazon.awscdk.services.dynamodb.AttributeType;
+import software.amazon.awscdk.services.dynamodb.TableEncryption;
+import software.amazon.awscdk.services.stepfunctions.JsonPath;
+import software.amazon.awscdk.services.stepfunctions.Chain;
+import software.amazon.awscdk.services.stepfunctions.RetryProps;
 
 import java.util.List;
 import java.util.Map;
@@ -53,6 +61,42 @@ public class CdkBaseStack extends Stack {
                 .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
 
+        // DynamoDB Metadata Table - stores audio pipeline metadata
+        Table metadataTable = Table.Builder.create(this, "SleepAudioMetadataTable")
+                .partitionKey(Attribute.builder()
+                        .name("audioId")
+                        .type(AttributeType.STRING)
+                        .build())
+                .billingMode(BillingMode.PAY_PER_REQUEST)
+                .encryption(TableEncryption.DEFAULT)
+                .pointInTimeRecovery(true)
+                .removalPolicy(RemovalPolicy.RETAIN)
+                .build();
+
+        // DynamoDB PutItem task - writes initial metadata record with PROCESSING status
+        CallAwsService putItemTask = CallAwsService.Builder.create(this, "PutMetadataRecord")
+                .service("dynamodb")
+                .action("putItem")
+                .parameters(Map.of(
+                        "TableName", metadataTable.getTableName(),
+                        "Item", Map.of(
+                                "audioId", Map.of("S", JsonPath.stringAt("$.object.key")),
+                                "status", Map.of("S", "PROCESSING"),
+                                "inputBucket", Map.of("S", JsonPath.stringAt("$.bucket.name")),
+                                "inputKey", Map.of("S", JsonPath.stringAt("$.object.key")),
+                                "createdAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime"))
+                        )
+                ))
+                .iamResources(List.of(metadataTable.getTableArn()))
+                .resultPath("$.putItemResult")
+                .build();
+
+        putItemTask.addRetry(RetryProps.builder()
+                .errors(List.of("DynamoDB.ProvisionedThroughputExceededException", "DynamoDB.InternalServerError", "States.Timeout"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
+
         // Polly SynthesizeSpeech task using CallAwsService
         CallAwsService pollyTask = CallAwsService.Builder.create(this, "SynthesizeSpeech")
                 .service("polly")
@@ -66,14 +110,51 @@ public class CdkBaseStack extends Stack {
                 .resultPath("$.pollyResult")
                 .build();
 
-        // Step Functions State Machine with Polly task and logging
+        // DynamoDB UpdateItem task - updates status to COMPLETED after Polly processing
+        CallAwsService updateItemTask = CallAwsService.Builder.create(this, "UpdateMetadataStatus")
+                .service("dynamodb")
+                .action("updateItem")
+                .parameters(Map.of(
+                        "TableName", metadataTable.getTableName(),
+                        "Key", Map.of(
+                                "audioId", Map.of("S", JsonPath.stringAt("$.object.key"))
+                        ),
+                        "UpdateExpression", "SET #s = :status, #u = :updatedAt",
+                        "ExpressionAttributeNames", Map.of(
+                                "#s", "status",
+                                "#u", "updatedAt"
+                        ),
+                        "ExpressionAttributeValues", Map.of(
+                                ":status", Map.of("S", "COMPLETED"),
+                                ":updatedAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime"))
+                        )
+                ))
+                .iamResources(List.of(metadataTable.getTableArn()))
+                .resultPath("$.updateItemResult")
+                .build();
+
+        updateItemTask.addRetry(RetryProps.builder()
+                .errors(List.of("DynamoDB.ProvisionedThroughputExceededException", "DynamoDB.InternalServerError", "States.Timeout"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
+
+        // Chain: PutItem -> Polly -> UpdateItem
+        Chain chain = Chain.start(putItemTask)
+                .next(pollyTask)
+                .next(updateItemTask);
+
+        // Step Functions State Machine with chained tasks and logging
         StateMachine stateMachine = StateMachine.Builder.create(this, "SleepAudioPipelineStateMachine")
-                .definitionBody(DefinitionBody.fromChainable(pollyTask))
+                .definitionBody(DefinitionBody.fromChainable(chain))
                 .logs(LogOptions.builder()
                         .destination(stateMachineLogGroup)
                         .level(LogLevel.ALL)
                         .build())
                 .build();
+
+        // Grant the state machine role permissions to read/write the DynamoDB table
+        metadataTable.grantReadWriteData(stateMachine);
 
         // EventBridge Rule - triggers on S3 Object Created events from the input bucket
         Rule rule = Rule.Builder.create(this, "SleepAudioInputRule")
