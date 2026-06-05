@@ -163,9 +163,18 @@ public class CdkBaseStack extends Stack {
         // SnsPublish task - publishes success notification after UpdateItem(COMPLETED)
         SnsPublish successPublishTask = SnsPublish.Builder.create(this, "PublishSuccessNotification")
                 .topic(completedTopic)
-                .message(TaskInput.fromJsonPathAt("$"))
+                .message(TaskInput.fromObject(Map.of(
+                        "audioId", JsonPath.stringAt("$.object.key"),
+                        "status", "COMPLETED"
+                )))
                 .resultPath("$.snsResult")
                 .build();
+
+        successPublishTask.addRetry(RetryProps.builder()
+                .errors(List.of("States.TaskFailed", "States.Timeout"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
 
         // DynamoDB UpdateItem task for failure path - sets status=FAILED with error info
         CallAwsService failureUpdateTask = CallAwsService.Builder.create(this, "UpdateMetadataStatusFailed")
@@ -185,7 +194,7 @@ public class CdkBaseStack extends Stack {
                         "ExpressionAttributeValues", Map.of(
                                 ":status", Map.of("S", "FAILED"),
                                 ":updatedAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime")),
-                                ":errorInfo", Map.of("S", JsonPath.stringAt("$.error.Error"))
+                                ":errorInfo", Map.of("S", JsonPath.stringAt("$.error.Cause"))
                         )
                 ))
                 .iamResources(List.of(metadataTable.getTableArn()))
@@ -201,17 +210,37 @@ public class CdkBaseStack extends Stack {
         // SnsPublish task - publishes failure notification
         SnsPublish failurePublishTask = SnsPublish.Builder.create(this, "PublishFailureNotification")
                 .topic(failedTopic)
-                .message(TaskInput.fromJsonPathAt("$"))
+                .message(TaskInput.fromObject(Map.of(
+                        "audioId", JsonPath.stringAt("$.object.key"),
+                        "status", "FAILED",
+                        "error", JsonPath.stringAt("$.error.Error"),
+                        "cause", JsonPath.stringAt("$.error.Cause")
+                )))
                 .resultPath("$.snsFailureResult")
                 .build();
 
-        // Failure path chain: UpdateItem(FAILED) -> SnsPublish(Failed)
-        Chain failurePath = Chain.start(failureUpdateTask)
-                .next(failurePublishTask);
+        failurePublishTask.addRetry(RetryProps.builder()
+                .errors(List.of("States.TaskFailed", "States.Timeout"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
+
+        // Wire failure path: UpdateItem(FAILED) -> SnsPublish(Failed)
+        failureUpdateTask.next(failurePublishTask);
 
         // Chain: PutItem -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
-        // with Catch on pollyTask routing to failure path
+        // with Catch on pollyTask, updateItemTask, and successPublishTask routing to failure path
         pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
+                .errors(List.of("States.ALL"))
+                .resultPath("$.error")
+                .build());
+
+        updateItemTask.addCatch(failureUpdateTask, CatchProps.builder()
+                .errors(List.of("States.ALL"))
+                .resultPath("$.error")
+                .build());
+
+        successPublishTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("States.ALL"))
                 .resultPath("$.error")
                 .build());

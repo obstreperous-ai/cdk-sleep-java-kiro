@@ -52,9 +52,12 @@ public class SnsNotificationTest {
     @Test
     public void testStateMachineDefinitionContainsFailedStatusUpdate() {
         // The error path should update DynamoDB with FAILED status via UpdateItem
+        // using $.error.Cause for detailed error information
         String templateJson = template.toJSON().toString();
         assertTrue(templateJson.contains("FAILED") && templateJson.contains("errorInfo"),
             "State machine definition should contain FAILED status and errorInfo on error path");
+        assertTrue(templateJson.contains("$.error.Cause"),
+            "State machine definition should use $.error.Cause for detailed error information");
     }
 
     @Test

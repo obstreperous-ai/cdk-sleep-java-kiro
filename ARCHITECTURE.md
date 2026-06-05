@@ -202,17 +202,17 @@ The Step Functions state machine implements a pipeline with error handling and n
 Start -> PutItem (PROCESSING) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End
 ```
 
-**Error Path (Catch on Polly task):**
+**Error Path (Catch on Polly, UpdateItem(COMPLETED), and SNS success publish tasks):**
 ```
 [Error] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
 ```
 
 1. **PutMetadataRecord** (DynamoDB PutItem): Writes an initial metadata record with audioId (from S3 object key), status=PROCESSING, inputBucket, inputKey, and createdAt timestamp from the Step Functions context object.
 2. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
-3. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp.
-4. **PublishSuccessNotification** (SNS Publish): Publishes a success notification to the SleepAudioPipelineCompleted topic.
-5. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and errorInfo from the caught error.
-6. **PublishFailureNotification** (SNS Publish - error path): Publishes a failure notification to the SleepAudioPipelineFailed topic.
+3. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp. Has a Catch block for States.ALL errors that routes to the failure path.
+4. **PublishSuccessNotification** (SNS Publish): Publishes a curated success notification (audioId, status) to the SleepAudioPipelineCompleted topic. Has retry for transient errors and a Catch block for States.ALL errors that routes to the failure path.
+5. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and the error cause from the caught error.
+6. **PublishFailureNotification** (SNS Publish - error path): Publishes a curated failure notification (audioId, status, error, cause) to the SleepAudioPipelineFailed topic. Has retry for transient errors.
 
 All DynamoDB tasks use `CallAwsService` for direct SDK integration with retry policies for transient errors. SNS tasks use the `SnsPublish` L2 construct. The state machine has full CloudWatch logging enabled (level ALL) via a dedicated log group. The DynamoDB table is granted read/write access via `table.grantReadWriteData(stateMachine)` and both SNS topics are granted publish access via `topic.grantPublish(stateMachine)` for least-privilege IAM permissions.
 
@@ -224,9 +224,10 @@ The pipeline uses two KMS-encrypted SNS topics for notifications:
 - **SleepAudioPipelineFailed**: Receives notifications when the pipeline encounters an unrecoverable error (after the FAILED status update).
 
 Error handling uses the Step Functions Catch mechanism:
-- A `Catch` block on the Polly task captures all errors (`States.ALL`) and routes execution to the failure path.
+- `Catch` blocks on the Polly task, UpdateItem(COMPLETED) task, and SNS success publish task capture all errors (`States.ALL`) and route execution to the failure path.
 - The error details are stored in `$.error` via the `resultPath` configuration.
-- The failure path updates the DynamoDB record with status=FAILED and the error information, then publishes to the failure SNS topic.
+- The failure path updates the DynamoDB record with status=FAILED and the detailed error cause (`$.error.Cause`), then publishes a curated failure notification (audioId, status, error type, cause) to the failure SNS topic.
+- Both SNS publish tasks have retry configuration for transient errors.
 
 **Note:** The current `SynthesizeSpeech` task uses the synchronous Polly API which returns a binary AudioStream. Step Functions cannot serialize binary data into state JSON, so this skeleton will produce a runtime error if executed. In a future iteration, this will be replaced with `StartSpeechSynthesisTask` (the asynchronous Polly API that writes output directly to S3), which is the appropriate API for Step Functions orchestration.
 
@@ -333,8 +334,8 @@ flowchart TD
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath,KMSKeys implemented
-    class Validate,Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles planned
+    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath implemented
+    class Validate,Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
 
     %% Legend:
     %% Green (solid border) = Implemented
