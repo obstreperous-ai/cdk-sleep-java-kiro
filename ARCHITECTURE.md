@@ -187,22 +187,46 @@ This document describes the target architecture. Components are implemented incr
 | **S3 Input Bucket** | `SleepAudioInputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement, EventBridge notifications enabled |
 | **S3 Output Bucket** | `SleepAudioOutputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement |
 | **EventBridge Rule** | `SleepAudioInputRule` | Triggers on Object Created events from Input Bucket, targets Step Functions state machine with event detail as input |
-| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | PutItem -> Polly SynthesizeSpeech -> UpdateItem chain, CloudWatch logging (ALL), EventBridge triggered |
+| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | PutItem -> Polly SynthesizeSpeech -> UpdateItem(COMPLETED) -> SNS Publish(success) chain with Catch-based error handling, CloudWatch logging (ALL), EventBridge triggered |
 | **DynamoDB Metadata Table** | `SleepAudioMetadataTable` | PAY_PER_REQUEST billing, partition key audioId (S), AWS-owned encryption (DEFAULT), point-in-time recovery enabled, removal policy RETAIN |
+| **SNS Topic (Completed)** | `SleepAudioPipelineCompleted` | KMS-encrypted, receives success notifications after pipeline completion |
+| **SNS Topic (Failed)** | `SleepAudioPipelineFailed` | KMS-encrypted, receives failure notifications when pipeline errors occur |
+| **KMS Key (SNS)** | `SnsEncryptionKey` | Key rotation enabled, encrypts both SNS topics |
 
 ### Orchestration Layer
 
-The Step Functions state machine implements a three-step pipeline:
+The Step Functions state machine implements a pipeline with error handling and notifications:
 
+**Happy Path:**
 ```
-Start -> PutItem (PROCESSING) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> End
+Start -> PutItem (PROCESSING) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End
+```
+
+**Error Path (Catch on Polly task):**
+```
+[Error] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
 ```
 
 1. **PutMetadataRecord** (DynamoDB PutItem): Writes an initial metadata record with audioId (from S3 object key), status=PROCESSING, inputBucket, inputKey, and createdAt timestamp from the Step Functions context object.
-2. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3).
+2. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
 3. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp.
+4. **PublishSuccessNotification** (SNS Publish): Publishes a success notification to the SleepAudioPipelineCompleted topic.
+5. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and errorInfo from the caught error.
+6. **PublishFailureNotification** (SNS Publish - error path): Publishes a failure notification to the SleepAudioPipelineFailed topic.
 
-All three tasks use `CallAwsService` for direct SDK integration. The state machine has full CloudWatch logging enabled (level ALL) via a dedicated log group. The DynamoDB table is granted read/write access via `table.grantReadWriteData(stateMachine)` for least-privilege IAM permissions.
+All DynamoDB tasks use `CallAwsService` for direct SDK integration with retry policies for transient errors. SNS tasks use the `SnsPublish` L2 construct. The state machine has full CloudWatch logging enabled (level ALL) via a dedicated log group. The DynamoDB table is granted read/write access via `table.grantReadWriteData(stateMachine)` and both SNS topics are granted publish access via `topic.grantPublish(stateMachine)` for least-privilege IAM permissions.
+
+### Notification and Error Handling
+
+The pipeline uses two KMS-encrypted SNS topics for notifications:
+
+- **SleepAudioPipelineCompleted**: Receives notifications when the pipeline successfully processes an audio file (after the COMPLETED status update).
+- **SleepAudioPipelineFailed**: Receives notifications when the pipeline encounters an unrecoverable error (after the FAILED status update).
+
+Error handling uses the Step Functions Catch mechanism:
+- A `Catch` block on the Polly task captures all errors (`States.ALL`) and routes execution to the failure path.
+- The error details are stored in `$.error` via the `resultPath` configuration.
+- The failure path updates the DynamoDB record with status=FAILED and the error information, then publishes to the failure SNS topic.
 
 **Note:** The current `SynthesizeSpeech` task uses the synchronous Polly API which returns a binary AudioStream. Step Functions cannot serialize binary data into state JSON, so this skeleton will produce a runtime error if executed. In a future iteration, this will be replaced with `StartSpeechSynthesisTask` (the asynchronous Polly API that writes output directly to S3), which is the appropriate API for Step Functions orchestration.
 
@@ -214,9 +238,8 @@ All three tasks use `CallAwsService` for direct SDK integration. The state machi
 | Lambda: Polly TTS | Invokes Amazon Polly Neural TTS for voice generation |
 | Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged) |
 | Lambda: Metadata Extraction | Extracts final audio metadata, writes to DynamoDB |
-| SNS Topic | Completion and error notifications |
 | CloudWatch Alarms | Error rate and throttling alarms |
-| KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3); will migrate to CMK per environment |
+| KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3) for buckets; will migrate to CMK per environment |
 
 ---
 
@@ -247,9 +270,9 @@ flowchart TD
     end
 
     subgraph Notification["Notification Layer"]
-        SNSTopic["SNS Topic"]
-        SuccessPath["Success Notification"]
-        ErrorPath["Error Notification"]
+        SNSTopic["SNS Topics\nKMS Encrypted"]
+        SuccessPath["Success Notification\n(Completed Topic)"]
+        ErrorPath["Error Notification\n(Failed Topic)"]
     end
 
     subgraph Observability["Observability"]
@@ -283,7 +306,8 @@ flowchart TD
 
     %% Error flow
     Validate -->|"Validation Failed"| ErrorPath
-    SFN -->|"Step Failure After Retries"| ErrorPath
+    SFN -->|"Catch: States.ALL"| ErrorPath
+    SFN -->|"UpdateItem(COMPLETED) then Publish"| SuccessPath
 
     %% Observability connections
     Validate -.->|"Emits Logs"| CWLogs
@@ -309,8 +333,8 @@ flowchart TD
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB implemented
-    class Validate,Choice,BedrockEnhance,MetadataExtract,SNSTopic,SuccessPath,ErrorPath,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
+    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath,KMSKeys implemented
+    class Validate,Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles planned
 
     %% Legend:
     %% Green (solid border) = Implemented

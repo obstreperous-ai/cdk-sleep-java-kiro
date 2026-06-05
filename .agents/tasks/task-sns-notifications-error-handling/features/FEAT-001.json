@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add SNS notification topics and Step Functions error handling with DynamoDB status updates, following strict TDD (tests first, then implementation). This adds two encrypted SNS topics (Completed/Failed), Catch blocks on the state machine, SNS Publish tasks on success/failure paths, and DynamoDB status update on failure.",
+  "status": "in_progress",
+  "steps": [
+    "Step 1 - Write failing tests in a new file src/test/java/com/myorg/SnsNotificationTest.java. Follow the pattern in StepFunctionsTest.java (BeforeEach setUp with App/Stack/Template). Tests to write: (a) Verify 2 AWS::SNS::Topic resources exist. (b) Verify SNS topics have KmsMasterKeyId property (encrypted). (c) Verify the state machine definition JSON contains 'sns:Publish' (SNS publish tasks). (d) Verify the state machine definition JSON contains a Catch block (error handling) by checking for '\"Catch\"' in the template JSON. (e) Verify the state machine definition JSON contains 'FAILED' status update (DynamoDB update on error path). (f) Verify an IAM policy exists granting sns:Publish permission (not wildcard resource). Run mvn test and confirm these tests FAIL.",
+    "Step 2 - Implement the SNS topics and error handling in src/main/java/com/myorg/CdkBaseStack.java. Specifically: (a) Add imports for software.amazon.awscdk.services.sns.Topic, software.amazon.awscdk.services.kms.Key (or use aws managed key alias for SNS encryption), software.amazon.awscdk.services.stepfunctions.Catch, software.amazon.awscdk.services.stepfunctions.tasks.SnsPublish (L2 construct). (b) Create a KMS key or use Key.fromLookup/alias for SNS encryption. Simplest: use a new Key construct or the aws/sns managed key. (c) Create two SNS Topic L2 constructs: 'SleepAudioPipelineCompleted' and 'SleepAudioPipelineFailed' with masterKey set for encryption. (d) Create an SnsPublish task for the success path that publishes to the Completed topic with a message including the audioId. (e) Create an SnsPublish task for the failure path that publishes to the Failed topic with error details. (f) Create a CallAwsService DynamoDB UpdateItem task for the failure path that sets status='FAILED' and adds errorInfo and updatedAt. (g) Restructure the chain: keep PutItem -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(success) as the happy path. Add a Catch on the overall chain (or on individual tasks like Polly) that routes to the failure path: UpdateItem(FAILED) -> SnsPublish(failed). Use CatchProps with .errors(List.of('States.ALL')) and .resultPath('$.error'). (h) Grant sns:Publish permissions: use topic.grantPublish(stateMachine) for both topics to ensure least-privilege IAM.",
+    "Step 3 - Run mvn test and confirm ALL tests pass (including the new SnsNotificationTest and all existing tests).",
+    "Step 4 - Update ARCHITECTURE.md: (a) In the Implementation Status table, move 'SNS Topic' from Planned to Implemented with details about both topics (encrypted, completion/failure notifications). (b) Update the Orchestration Layer section to describe the error handling flow. (c) Update the Mermaid diagram: add SNSTopic node as implemented (green), add SNSCompleted and SNSFailed nodes, add error flow arrows from the state machine to SNSFailed, success flow to SNSCompleted, mark them as implemented class. (d) Add a brief 'Notification and Error Handling' subsection describing the two topics, when notifications fire, and the Catch-based error handling pattern."
+  ],
+  "acceptance_criteria": [
+    "Running `mvn test` passes all tests including new SnsNotificationTest assertions",
+    "Template contains exactly 2 AWS::SNS::Topic resources with KmsMasterKeyId set",
+    "State machine definition contains Catch blocks for error handling",
+    "State machine definition contains sns:Publish actions for both success and failure paths",
+    "State machine definition contains DynamoDB UpdateItem with FAILED status on error path",
+    "IAM policy grants sns:Publish to specific topic ARNs (not wildcard)",
+    "ARCHITECTURE.md Mermaid diagram shows SNS topics as implemented (green) with notification flows",
+    "All 18+ existing tests continue to pass"
+  ],
+  "verification": [
+    "cd /projects/sandbox/cdk-sleep-java-kiro && export JAVA_HOME=/root/.local/share/mise/installs/java/17.0.2 && export PATH=\"$JAVA_HOME/bin:$PATH\" && mvn test",
+    "Verify SnsNotificationTest.java exists and has at least 6 test methods",
+    "Verify ARCHITECTURE.md contains updated Mermaid diagram with SNS topics"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
