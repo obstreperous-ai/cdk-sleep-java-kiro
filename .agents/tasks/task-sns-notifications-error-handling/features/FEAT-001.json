@@ -25,5 +25,5 @@
     "Verify ARCHITECTURE.md contains updated Mermaid diagram with SNS topics"
   ],
   "blocked_reason": null,
-  "findings": "All 24 tests pass (18 existing + 6 new). Used SnsPublish L2 construct for Step Functions SNS tasks. Used addCatch on pollyTask (not the chain) for error handling. KMS key with rotation enabled encrypts both SNS topics. The failure path DynamoDB update references $.error.Error for the error info from the Catch resultPath."
+  "findings": "All 24 tests pass (18 existing + 6 new). Used SnsPublish L2 construct for Step Functions SNS tasks. Used addCatch on pollyTask (not the chain) for error handling. KMS key with rotation enabled encrypts both SNS topics. The failure path DynamoDB update references $.error.Error for the error info from the Catch resultPath. Review fixes applied: extended Catch to updateItemTask and successPublishTask, curated SNS messages with TaskInput.fromObject, added retry to SnsPublish tasks, changed errorInfo to use $.error.Cause, fixed KMSKeys diagram classification, removed dead failurePath variable."
 }
