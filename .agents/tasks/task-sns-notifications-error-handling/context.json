@@ -1,0 +1,23 @@
+{
+  "project_type": "Java CDK infrastructure-as-code project for event-driven sleep audio pipeline",
+  "language": "Java 17",
+  "build_system": "Maven 3.9.10 with pom.xml. Requires proxy settings in /root/.m2/settings.xml (already configured). Java 17 via mise at /root/.local/share/mise/installs/java/17.0.2",
+  "test_framework": "JUnit 5 with CDK assertions library (Template.fromStack, Match utilities). Tests in src/test/java/com/myorg/. Pattern: @BeforeEach setUp() creates App+Stack+Template, each @Test method asserts on template properties.",
+  "build_command": "cd /projects/sandbox/cdk-sleep-java-kiro && export JAVA_HOME=/root/.local/share/mise/installs/java/17.0.2 && export PATH=\"$JAVA_HOME/bin:$PATH\" && mvn compile",
+  "test_command": "cd /projects/sandbox/cdk-sleep-java-kiro && export JAVA_HOME=/root/.local/share/mise/installs/java/17.0.2 && export PATH=\"$JAVA_HOME/bin:$PATH\" && mvn test",
+  "verification_instructions": "1. Run mvn test (all tests must pass). 2. Run cdk synth (requires Node.js for CDK CLI). CI runs: mvn test + cdk synth.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Maven proxy already configured in /root/.m2/settings.xml. Java 17 at /root/.local/share/mise/installs/java/17.0.2. Dependencies download from Maven Central via proxy.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - Maven Central accessible via proxy. Java 25 is default but project targets Java 17. Must set JAVA_HOME explicitly. NODE_OPTIONS env var must be cleared for CDK synth/test (already handled in pom.xml surefire config).",
+  "contribution_requirements": "Strict TDD: write failing tests FIRST, then implement. Conventional commits (feat:, fix:, docs:, etc.). Every construct needs a test. ARCHITECTURE.md Mermaid diagram must stay in sync. L2 constructs preferred. Least-privilege IAM.",
+  "key_patterns": "Single stack class CdkBaseStack.java contains all constructs. Tests split by concern: CdkBaseTest (S3/EventBridge), StepFunctionsTest (state machine/Polly), DynamoDbMetadataTest (DynamoDB). Tests use Template.fromStack + Match utilities. State machine uses Chain with CallAwsService tasks. Retry via addRetry(). Permissions via grantReadWriteData().",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "src/test/java/com/myorg/DynamoDbMetadataTest.java",
+    "src/test/java/com/myorg/CdkBaseTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml"
+  ],
+  "directory_structure": "Root: pom.xml, cdk.json, ARCHITECTURE.md, CONTRIBUTING.md. src/main/java/com/myorg/: CdkBaseApp.java (entry point), CdkBaseStack.java (all constructs). src/test/java/com/myorg/: CdkBaseTest.java, StepFunctionsTest.java, DynamoDbMetadataTest.java."
+}
