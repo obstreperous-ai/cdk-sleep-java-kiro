@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Update ARCHITECTURE.md to document the new Lambda function (SleepAudioProcessor) and its role in the pipeline. Update the Implementation Status table, Orchestration Layer section, and Mermaid diagram to show the Lambda between PutItem and Polly steps. Move it from Planned to Implemented status.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Update Implementation Status table: Add a row for 'Lambda: SleepAudioProcessor' with CDK Logical ID 'SleepAudioProcessor' and configuration 'Python 3.12 runtime, validates audio metadata input, returns enriched data, DynamoDB read access, invoked by Step Functions between PutItem and Polly steps'. Remove or update the 'Lambda: Validate Input' entry from the Planned table since SleepAudioProcessor partially fulfills this role.",
     "Step 2 - Update Orchestration Layer section: Update the Happy Path to show: Start -> PutItem (PROCESSING) -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End. Add a numbered description for the ProcessAudioMetadata step (after PutMetadataRecord and before SynthesizeSpeech) explaining it validates audio metadata, logs the input, and returns enriched data for downstream processing. Note it has Catch block for States.ALL routing to failure path.",
@@ -21,5 +21,5 @@
     "Verify the Happy Path text matches the actual chain order in CdkBaseStack.java"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Documentation-only change to the Mermaid diagram in ARCHITECTURE.md. Added ProcessAudio node in the Orchestration subgraph, wired it between SFN/PutItem and PollyTTS in the data flow, added error flow connection (Catch: States.ALL -> ErrorPath), observability (Emits Logs -> CWLogs), and security (Assumes -> IAMRoles) connections. Added ProcessAudio to the implemented classDef styling. Text sections (Implementation Status table, Orchestration Layer, Error Path) were already correctly updated by FEAT-001. No build/test needed for docs-only change."
 }
