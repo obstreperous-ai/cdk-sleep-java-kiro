@@ -127,7 +127,7 @@ public class CdkBaseStack extends Stack {
                 .build();
 
         lambdaInvokeTask.addRetry(RetryProps.builder()
-                .errors(List.of("Lambda.ServiceException", "States.Timeout"))
+                .errors(List.of("Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"))
                 .maxAttempts(3)
                 .backoffRate(2.0)
                 .build());
