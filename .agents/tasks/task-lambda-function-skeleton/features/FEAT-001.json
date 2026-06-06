@@ -27,5 +27,5 @@
     "Verify the chain order is: putItemTask -> lambdaInvokeTask -> pollyTask -> updateItemTask -> successPublishTask"
   ],
   "blocked_reason": null,
-  "findings": "Maven Central unreachable so validation was structural only (javac shows only missing-package errors, braces balanced, Python syntax validated via ast.parse). Used fully qualified name software.amazon.awscdk.services.lambda.Function to avoid conflict with java.util.function.Function. LambdaInvoke L2 construct automatically grants lambda:InvokeFunction to state machine role."
+  "findings": "Maven Central unreachable so validation was structural only (javac shows only missing-package errors, braces balanced, Python syntax validated via ast.parse). Used fully qualified name software.amazon.awscdk.services.lambda.Function to avoid conflict with java.util.function.Function. LambdaInvoke L2 construct automatically grants lambda:InvokeFunction to state machine role. Post-review fixes applied: (1) Removed try/except in index.py so ValueError propagates to Step Functions Catch block; (2) Changed payloadResponseOnly(false) to payloadResponseOnly(true) for flat response at $.lambdaResult; (3) Renamed misleading test from testLambdaExecutionRoleHasBasicExecutionPermissions to testLambdaExecutionRoleHasDynamoDbReadDataGrant."
 }
