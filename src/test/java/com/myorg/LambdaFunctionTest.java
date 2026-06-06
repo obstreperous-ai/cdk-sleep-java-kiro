@@ -94,8 +94,8 @@ public class LambdaFunctionTest {
     }
 
     @Test
-    public void testLambdaExecutionRoleHasBasicExecutionPermissions() {
-        // Lambda execution role should have CloudWatch Logs permissions
+    public void testLambdaExecutionRoleHasDynamoDbReadDataGrant() {
+        // Lambda execution role should have DynamoDB read data permissions from grantReadData()
         template.hasResourceProperties("AWS::IAM::Policy", Match.objectLike(Map.of(
             "PolicyDocument", Match.objectLike(Map.of(
                 "Statement", Match.arrayWith(List.of(

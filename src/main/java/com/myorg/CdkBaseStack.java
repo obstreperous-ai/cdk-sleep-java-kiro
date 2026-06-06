@@ -122,7 +122,7 @@ public class CdkBaseStack extends Stack {
         // LambdaInvoke task - processes audio metadata between PutItem and Polly
         LambdaInvoke lambdaInvokeTask = LambdaInvoke.Builder.create(this, "ProcessAudioMetadata")
                 .lambdaFunction(audioProcessorFunction)
-                .payloadResponseOnly(false)
+                .payloadResponseOnly(true)
                 .resultPath("$.lambdaResult")
                 .build();
 

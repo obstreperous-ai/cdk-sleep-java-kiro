@@ -25,37 +25,33 @@ def handler(event, context):
         context: Lambda context object.
 
     Returns:
-        dict with status, audioId, and processingTimestamp on success,
-        or status ERROR with error details on failure.
+        dict with status, audioId, and processingTimestamp on success.
+
+    Raises:
+        ValueError: If required fields (bucket.name or object.key) are missing.
+            The unhandled exception triggers the Step Functions Catch block.
     """
     logger.info("Received event: %s", json.dumps(event))
 
-    try:
-        bucket_name = event.get("bucket", {}).get("name")
-        object_key = event.get("object", {}).get("key")
+    bucket_name = event.get("bucket", {}).get("name")
+    object_key = event.get("object", {}).get("key")
 
-        if not bucket_name:
-            raise ValueError("Missing required field: bucket.name")
-        if not object_key:
-            raise ValueError("Missing required field: object.key")
+    if not bucket_name:
+        logger.error("Processing failed: Missing required field: bucket.name")
+        raise ValueError("Missing required field: bucket.name")
+    if not object_key:
+        logger.error("Processing failed: Missing required field: object.key")
+        raise ValueError("Missing required field: object.key")
 
-        audio_id = object_key
+    audio_id = object_key
 
-        response = {
-            "status": "VALIDATED",
-            "audioId": audio_id,
-            "processingTimestamp": datetime.now(timezone.utc).isoformat(),
-            "bucketName": bucket_name,
-            "objectKey": object_key,
-        }
+    response = {
+        "status": "VALIDATED",
+        "audioId": audio_id,
+        "processingTimestamp": datetime.now(timezone.utc).isoformat(),
+        "bucketName": bucket_name,
+        "objectKey": object_key,
+    }
 
-        logger.info("Processing complete: %s", json.dumps(response))
-        return response
-
-    except Exception as e:
-        logger.error("Processing failed: %s", str(e))
-        return {
-            "status": "ERROR",
-            "error": str(e),
-            "errorType": type(e).__name__,
-        }
+    logger.info("Processing complete: %s", json.dumps(response))
+    return response
