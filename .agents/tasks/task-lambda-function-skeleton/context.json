@@ -1,0 +1,24 @@
+{
+  "project_type": "AWS CDK Java application for event-driven sleep audio processing pipeline",
+  "language": "Java 17",
+  "build_system": "Maven 3.9+ with maven-compiler-plugin (release 17), maven-surefire-plugin (clears NODE_OPTIONS env), exec-maven-plugin for CDK synth",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack pattern). Each test class has a @BeforeEach setUp() creating App/Stack/Template. Tests use Match.objectLike, Match.arrayWith, Match.anyValue, Match.not, Match.exact. Also uses template.toJSON().toString() for string-based checks.",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "Maven Central is NOT reachable in this sandbox (COMMON_DEPENDENCIES mode but repo.maven.apache.org:443 times out). Verification must use Java syntax validation via javac for basic syntax checks, and structural/AST review of code correctness. Cannot run mvn test or cdk synth.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Maven dependencies not available - cannot install. Use javac for syntax validation only.",
+  "environment_constraints": "Maven Central unreachable (Connect timed out to repo.maven.apache.org:443). No CDK CLI installed. Java 25 installed (not Java 17 but backward compatible for syntax). Cannot run mvn compile, mvn test, or cdk synth. Must validate code structurally.",
+  "contribution_requirements": "Strict TDD: write failing tests first, then implement. Conventional commits (feat:, fix:, docs:). ARCHITECTURE.md must stay in sync with code. Every CDK construct needs a test. L2 constructs preferred. Least-privilege IAM.",
+  "key_patterns": "Test pattern: @BeforeEach setUp() { App app = new App(); CdkBaseStack stack = new CdkBaseStack(app, \"test\"); template = Template.fromStack(stack); }. Stack uses Java Map.of() for parameters. Uses CallAwsService for direct SDK calls. Uses Chain.start().next() for state machine definition. Uses addCatch/addRetry for error handling. SNS via SnsPublish L2 construct.",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/test/java/com/myorg/CdkBaseTest.java",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "src/test/java/com/myorg/DynamoDbMetadataTest.java",
+    "src/test/java/com/myorg/SnsNotificationTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml"
+  ],
+  "directory_structure": "src/main/java/com/myorg/ - CDK app (CdkBaseApp.java) and stack (CdkBaseStack.java). src/test/java/com/myorg/ - JUnit 5 CDK assertion tests. ARCHITECTURE.md - design doc with Mermaid diagram. pom.xml - Maven config with aws-cdk-lib dependency."
+}

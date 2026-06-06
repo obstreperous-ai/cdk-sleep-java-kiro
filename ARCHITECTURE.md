@@ -260,6 +260,7 @@ flowchart TD
 
     subgraph Orchestration["Orchestration (Step Functions)"]
         SFN["Step Functions State Machine"]
+        ProcessAudio["Process Audio Metadata\n(Lambda)"]
         Validate["Validate Input\n(Lambda)"]
         Choice{"Processing\nChoice"}
         PollyTTS["Polly TTS\n(Lambda)"]
@@ -292,8 +293,10 @@ flowchart TD
     %% Main data flow
     S3Input -->|"PutObject Event"| EBRule
     EBRule -->|"Triggers Execution"| SFN
-    SFN --> Validate
     SFN -->|"PutItem (PROCESSING)"| DDB
+    SFN --> ProcessAudio
+    ProcessAudio -->|"Validated Metadata"| PollyTTS
+    SFN --> Validate
     Validate -->|"Valid Input"| Choice
     Choice -->|"Text Script Provided"| PollyTTS
     Choice -->|"No Text Script"| BedrockEnhance
@@ -309,10 +312,12 @@ flowchart TD
 
     %% Error flow
     Validate -->|"Validation Failed"| ErrorPath
+    ProcessAudio -->|"Catch: States.ALL"| ErrorPath
     SFN -->|"Catch: States.ALL"| ErrorPath
     SFN -->|"UpdateItem(COMPLETED) then Publish"| SuccessPath
 
     %% Observability connections
+    ProcessAudio -.->|"Emits Logs"| CWLogs
     Validate -.->|"Emits Logs"| CWLogs
     PollyTTS -.->|"Emits Logs"| CWLogs
     BedrockEnhance -.->|"Emits Logs"| CWLogs
@@ -327,6 +332,7 @@ flowchart TD
     DDB -.->|"Encrypted By"| KMSKeys
     SNSTopic -.->|"Encrypted By"| KMSKeys
     SFN -.->|"Assumes"| IAMRoles
+    ProcessAudio -.->|"Assumes"| IAMRoles
     Validate -.->|"Assumes"| IAMRoles
     PollyTTS -.->|"Assumes"| IAMRoles
     BedrockEnhance -.->|"Assumes"| IAMRoles
@@ -336,7 +342,7 @@ flowchart TD
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath implemented
+    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath,ProcessAudio implemented
     class Validate,Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
 
     %% Legend:

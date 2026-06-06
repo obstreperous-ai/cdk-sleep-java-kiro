@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to document the new Lambda function (SleepAudioProcessor) and its role in the pipeline. Update the Implementation Status table, Orchestration Layer section, and Mermaid diagram to show the Lambda between PutItem and Polly steps. Move it from Planned to Implemented status.",
+  "status": "in_progress",
+  "steps": [
+    "Step 1 - Update Implementation Status table: Add a row for 'Lambda: SleepAudioProcessor' with CDK Logical ID 'SleepAudioProcessor' and configuration 'Python 3.12 runtime, validates audio metadata input, returns enriched data, DynamoDB read access, invoked by Step Functions between PutItem and Polly steps'. Remove or update the 'Lambda: Validate Input' entry from the Planned table since SleepAudioProcessor partially fulfills this role.",
+    "Step 2 - Update Orchestration Layer section: Update the Happy Path to show: Start -> PutItem (PROCESSING) -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End. Add a numbered description for the ProcessAudioMetadata step (after PutMetadataRecord and before SynthesizeSpeech) explaining it validates audio metadata, logs the input, and returns enriched data for downstream processing. Note it has Catch block for States.ALL routing to failure path.",
+    "Step 3 - Update Mermaid diagram: Add a 'ProcessAudio[\"Process Audio Metadata\\n(Lambda)\"]' node in the Orchestration subgraph. Wire it between PutItem/SFN and PollyTTS in the flow. Add it to the 'implemented' class styling (green, solid border). Keep other planned Lambdas (Validate, Bedrock, MetadataExtract) as planned/dashed.",
+    "Step 4 - Update Error Path documentation: Note that the ProcessAudioMetadata Lambda task also has a Catch block for States.ALL that routes to UpdateItem(FAILED) -> SNS Publish(Failure) path, consistent with other tasks in the chain."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md Implementation Status table includes SleepAudioProcessor Lambda with correct details",
+    "Orchestration Layer Happy Path shows ProcessAudioMetadata between PutItem and Polly",
+    "Mermaid diagram has a ProcessAudio node with implemented (green) styling",
+    "Error path documentation mentions Lambda task Catch block"
+  ],
+  "verification": [
+    "Review ARCHITECTURE.md for consistency between text description, Implementation Status table, and Mermaid diagram",
+    "Verify the Mermaid diagram syntax is valid (no broken arrows or undefined nodes)",
+    "Verify the Happy Path text matches the actual chain order in CdkBaseStack.java"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

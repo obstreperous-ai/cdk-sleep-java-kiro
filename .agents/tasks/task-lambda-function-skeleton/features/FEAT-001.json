@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add Lambda function skeleton (SleepAudioProcessor) and integrate it into the Step Functions state machine, following strict TDD with CDK assertion tests written first. The Lambda uses Python 3.12 runtime with an inline handler that logs input, performs basic validation, and returns enriched data. It is invoked via LambdaInvoke in the state machine chain between PutItem(PROCESSING) and Polly SynthesizeSpeech. Environment variables include the DynamoDB table name. The state machine role gets lambda:InvokeFunction permission automatically via LambdaInvoke L2 construct.",
+  "status": "completed",
+  "steps": [
+    "Step 1 - Create test file: Create src/test/java/com/myorg/LambdaFunctionTest.java following the existing test pattern (setUp with App/CdkBaseStack/Template). Write tests that will initially fail because the Lambda does not exist yet. Tests should verify: (a) AWS::Lambda::Function resource exists with Runtime=python3.12, Handler=index.handler, and environment variable TABLE_NAME referencing the DynamoDB table; (b) the state machine definition JSON contains a LambdaInvoke task (check for 'lambda:invoke' or 'Lambda Invoke' pattern in the template JSON); (c) IAM policy grants lambda:InvokeFunction permission to the state machine role scoped to the Lambda ARN (not wildcard); (d) Lambda execution role has basic execution permissions (AWSLambdaBasicExecutionRole managed policy or equivalent CloudWatch Logs permissions).",
+    "Step 2 - Create Lambda handler: Create src/main/resources/lambda/audio-processor/index.py with a minimal Python handler that: receives event from Step Functions (containing S3 bucket, key, audioId from previous state output), logs the received event using Python logging module, validates that required fields (bucket name, object key) are present, returns a response dict with status='VALIDATED', audioId, and a processingTimestamp. Include basic try/except error handling that returns status='ERROR' with error details.",
+    "Step 3 - Update CdkBaseStack.java: Add the Lambda function construct using software.amazon.awscdk.services.lambda.Function (L2) with: logical ID 'SleepAudioProcessor', runtime Runtime.PYTHON_3_12, handler 'index.handler', code Code.fromAsset('src/main/resources/lambda/audio-processor'), environment variable TABLE_NAME set to metadataTable.getTableName(). Grant the Lambda read access to the DynamoDB table via metadataTable.grantReadData(lambdaFunction).",
+    "Step 4 - Integrate Lambda into Step Functions chain: Add a LambdaInvoke task (from aws_stepfunctions_tasks) with logical ID 'ProcessAudioMetadata' that invokes the Lambda function. Configure it with resultPath '$.lambdaResult' and payload type of TaskInput.fromJsonPathAt('$'). Insert it in the chain between putItemTask and pollyTask: Chain.start(putItemTask).next(lambdaInvokeTask).next(pollyTask).next(updateItemTask).next(successPublishTask). Add a Catch block on the Lambda task that routes to failureUpdateTask (same error handling pattern as other tasks). Add retry for Lambda.ServiceException and States.Timeout.",
+    "Step 5 - Add necessary imports: Add imports for software.amazon.awscdk.services.lambda.Function, software.amazon.awscdk.services.lambda.Runtime, software.amazon.awscdk.services.lambda.Code, software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke, and software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvokeProps to CdkBaseStack.java.",
+    "Step 6 - Verify compilation: Since mvn is unavailable, verify Java syntax is correct by reviewing imports, method calls, and API usage match the aws-cdk-lib API. Ensure no compilation errors would occur."
+  ],
+  "acceptance_criteria": [
+    "src/test/java/com/myorg/LambdaFunctionTest.java exists with tests for Lambda existence, runtime, handler, environment variables, state machine integration, and IAM permissions",
+    "src/main/resources/lambda/audio-processor/index.py exists with a working Python handler that logs input, validates fields, and returns a response",
+    "CdkBaseStack.java contains a Lambda Function construct with id 'SleepAudioProcessor', Python 3.12 runtime, and TABLE_NAME environment variable",
+    "CdkBaseStack.java contains a LambdaInvoke task with id 'ProcessAudioMetadata' integrated into the state machine chain between PutItem and Polly tasks",
+    "Lambda task has Catch block routing to failure path and Retry for transient errors",
+    "The state machine role is granted lambda:InvokeFunction (via the LambdaInvoke L2 construct automatic grant)",
+    "Lambda execution role has DynamoDB read access granted via metadataTable.grantReadData()"
+  ],
+  "verification": [
+    "Review LambdaFunctionTest.java for correct CDK assertion patterns matching the existing test files",
+    "Review CdkBaseStack.java for correct import statements, Lambda construct creation, LambdaInvoke task, and chain ordering",
+    "Review index.py for proper Python handler structure with logging, validation, and error handling",
+    "Verify the chain order is: putItemTask -> lambdaInvokeTask -> pollyTask -> updateItemTask -> successPublishTask"
+  ],
+  "blocked_reason": null,
+  "findings": "Maven Central unreachable so validation was structural only (javac shows only missing-package errors, braces balanced, Python syntax validated via ast.parse). Used fully qualified name software.amazon.awscdk.services.lambda.Function to avoid conflict with java.util.function.Function. LambdaInvoke L2 construct automatically grants lambda:InvokeFunction to state machine role."
+}
