@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Add input validation (Choice state) to Step Functions state machine, fix pre-existing LambdaFunctionTest failures, write comprehensive CDK assertion tests verifying complete pipeline wiring including validation, and update the Lambda function to include file extension validation.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1: Fix the 4 pre-existing test failures in src/test/java/com/myorg/LambdaFunctionTest.java. Issues: (a) testLambdaFunctionExists expects 1 Lambda but CDK creates 2 (S3 EventBridge custom resource handler creates a second one) - use hasResourceProperties instead of resourceCountIs, or assert >=1. (b) testStateMachineDefinitionContainsLambdaInvoke checks for 'lambda:invoke' but the CDK LambdaInvoke task generates 'arn:aws:states:::lambda:invoke' in the definition - fix the assertion string. (c) testLambdaExecutionRoleHasDynamoDbReadAccess and testLambdaExecutionRoleHasDynamoDbReadDataGrant assertions don't match actual grantReadData() policy format - check what grantReadData actually produces and fix assertions.",
     "Step 2: Write new test class src/test/java/com/myorg/InputValidationTest.java (TDD - write failing tests first). Tests should verify: (a) A Choice state exists in the state machine definition that checks file extension. (b) The Choice state routes invalid extensions to the failure path (UpdateMetadataStatusFailed). (c) The Choice state routes valid extensions (.wav, .mp3, .ogg) to the processing path. (d) The validation Choice state is positioned after PutMetadataRecord and before ProcessAudioMetadata in the chain. Pattern: Use template.toJSON().toString() to inspect state machine definition JSON for Choice state type and conditions.",
@@ -26,5 +26,5 @@
     "Run `mise exec -- mvn test` and confirm all tests pass with 0 failures, 0 errors"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Match.arrayWith in CDK assertions requires items to be in the same order as they appear in the actual array (subsequence matching, not set matching). The grantReadData() generates actions in order: [BatchGetItem, Query, GetItem, Scan, ConditionCheckItem, DescribeTable] and a second statement with [GetRecords, GetShardIterator]. CDK LambdaInvoke uses lambda:InvokeFunction in IAM policy (not lambda:invoke). The S3 EventBridge custom resource creates an additional Lambda function in the stack. Choice state with multiple .when() clauses pointing to the same chain works correctly in CDK."
 }
