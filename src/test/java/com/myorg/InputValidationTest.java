@@ -67,11 +67,36 @@ public class InputValidationTest {
     }
 
     @Test
-    public void testInvalidExtensionsRouteToFailurePath() {
-        // Invalid file extensions (Default/otherwise) should route to failure path
-        String templateJson = template.toJSON().toString();
-        assertTrue(templateJson.contains("UpdateMetadataStatusFailed"),
-            "Invalid extensions should route to UpdateMetadataStatusFailed via Default path");
+    public void testInvalidExtensionsRouteToFailurePath() throws Exception {
+        // Invalid file extensions (Default/otherwise) should route to ValidationError Pass state
+        // which then chains to UpdateMetadataStatusFailed
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String templateJson = mapper.writeValueAsString(template.toJSON());
+        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(templateJson);
+        com.fasterxml.jackson.databind.JsonNode resources = root.get("Resources");
+        com.fasterxml.jackson.databind.JsonNode definition = null;
+        for (java.util.Iterator<String> it = resources.fieldNames(); it.hasNext(); ) {
+            String key = it.next();
+            com.fasterxml.jackson.databind.JsonNode resource = resources.get(key);
+            if ("AWS::StepFunctions::StateMachine".equals(resource.get("Type").asText())) {
+                com.fasterxml.jackson.databind.JsonNode defStr = resource.get("Properties").get("DefinitionString");
+                if (defStr.has("Fn::Join")) {
+                    com.fasterxml.jackson.databind.JsonNode parts = defStr.get("Fn::Join").get(1);
+                    StringBuilder sb = new StringBuilder();
+                    for (com.fasterxml.jackson.databind.JsonNode part : parts) {
+                        sb.append(part.isTextual() ? part.asText() : "PLACEHOLDER");
+                    }
+                    definition = mapper.readTree(sb.toString());
+                }
+                break;
+            }
+        }
+        assertTrue(definition != null, "State machine definition should be parseable");
+        com.fasterxml.jackson.databind.JsonNode choiceState = definition.get("States").get("ValidateFileExtension");
+        assertTrue(choiceState != null, "ValidateFileExtension state should exist");
+        String defaultTarget = choiceState.get("Default").asText();
+        assertTrue("ValidationError".equals(defaultTarget),
+            "Choice state Default should route to ValidationError, got: " + defaultTarget);
     }
 
     @Test

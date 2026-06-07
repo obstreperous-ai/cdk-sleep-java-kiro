@@ -7,7 +7,11 @@ import software.amazon.awscdk.assertions.Match;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -122,20 +126,79 @@ public class PipelineWiringTest {
     }
 
     @Test
-    public void testValidationFailureRoutesToUpdateMetadataStatusFailed() {
-        // The default path of the Choice state should route to UpdateMetadataStatusFailed
-        String templateJson = template.toJSON().toString();
-        // In the Choice state definition, Default should point to UpdateMetadataStatusFailed
-        assertTrue(templateJson.contains("UpdateMetadataStatusFailed"),
-            "Validation failure should route to UpdateMetadataStatusFailed");
+    public void testValidationFailureRoutesToUpdateMetadataStatusFailed() throws Exception {
+        // Parse the state machine DefinitionString and verify the Choice Default field
+        // points to the ValidationError Pass state (which then chains to UpdateMetadataStatusFailed)
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+        JsonNode choiceState = states.get("ValidateFileExtension");
+        String defaultTarget = choiceState.get("Default").asText();
+        assertEquals("ValidationError", defaultTarget,
+            "Choice state Default should route to ValidationError Pass state");
+
+        // Verify ValidationError then routes to UpdateMetadataStatusFailed
+        JsonNode validationErrorState = states.get("ValidationError");
+        assertEquals("UpdateMetadataStatusFailed", validationErrorState.get("Next").asText(),
+            "ValidationError Pass state should route to UpdateMetadataStatusFailed");
     }
 
     @Test
-    public void testFailurePathRoutesToPublishFailureNotification() {
-        // UpdateMetadataStatusFailed should chain to PublishFailureNotification
-        String templateJson = template.toJSON().toString();
-        assertTrue(templateJson.contains("PublishFailureNotification"),
-            "Failure path should include PublishFailureNotification");
+    public void testFailurePathRoutesToPublishFailureNotification() throws Exception {
+        // Parse the state machine DefinitionString and verify UpdateMetadataStatusFailed.Next
+        // equals PublishFailureNotification
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+        JsonNode failedState = states.get("UpdateMetadataStatusFailed");
+        assertEquals("PublishFailureNotification", failedState.get("Next").asText(),
+            "UpdateMetadataStatusFailed should chain to PublishFailureNotification");
+    }
+
+    @Test
+    public void testPutMetadataRecordRoutesToValidateFileExtension() throws Exception {
+        // Parse the state machine DefinitionString and verify PutMetadataRecord.Next
+        // equals ValidateFileExtension
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+        JsonNode putMetadataState = states.get("PutMetadataRecord");
+        assertEquals("ValidateFileExtension", putMetadataState.get("Next").asText(),
+            "PutMetadataRecord should chain to ValidateFileExtension");
+    }
+
+    /**
+     * Extracts and parses the state machine DefinitionString from the synthesized template.
+     * The DefinitionString uses Fn::Join with intrinsic references (Ref, Fn::GetAtt) that
+     * appear as non-text parts. These are replaced with placeholder strings so the JSON
+     * can be parsed to inspect state machine structure.
+     */
+    private JsonNode getStateMachineDefinition() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String templateJson = mapper.writeValueAsString(template.toJSON());
+        JsonNode root = mapper.readTree(templateJson);
+        JsonNode resources = root.get("Resources");
+        for (java.util.Iterator<String> it = resources.fieldNames(); it.hasNext(); ) {
+            String key = it.next();
+            JsonNode resource = resources.get(key);
+            if ("AWS::StepFunctions::StateMachine".equals(resource.get("Type").asText())) {
+                JsonNode definitionString = resource.get("Properties").get("DefinitionString");
+                if (definitionString.has("Fn::Join")) {
+                    JsonNode parts = definitionString.get("Fn::Join").get(1);
+                    StringBuilder sb = new StringBuilder();
+                    for (JsonNode part : parts) {
+                        if (part.isTextual()) {
+                            sb.append(part.asText());
+                        } else {
+                            // Intrinsic function reference (Ref, Fn::GetAtt) - these appear
+                            // inside JSON string values, so insert a plain placeholder string
+                            sb.append("PLACEHOLDER");
+                        }
+                    }
+                    return mapper.readTree(sb.toString());
+                } else if (definitionString.isTextual()) {
+                    return mapper.readTree(definitionString.asText());
+                }
+            }
+        }
+        throw new RuntimeException("StateMachine resource not found in template");
     }
 
     @Test
