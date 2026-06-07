@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Update ARCHITECTURE.md to reflect the complete integrated pipeline with input validation. Refine the Mermaid diagram to show the ValidateFileExtension Choice state, validation flow (valid/invalid paths), and ensure all implemented components are marked as implemented (green). Add/update a section describing the end-to-end flow with validation points.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Step 1: Update the 'Implementation Status' section of ARCHITECTURE.md. Move 'Validate Input' from the 'Planned' table to the 'Implemented' table. Document it as a Choice state (not a Lambda) named 'ValidateFileExtension' that checks file extension (.wav, .mp3, .ogg) and routes invalid files to the failure path.",
     "Step 2: Update the 'Orchestration Layer' section to include the ValidateFileExtension Choice state in the pipeline flow. The Happy Path should now be: Start -> PutItem (PROCESSING) -> ValidateFileExtension (Choice) -> [valid] -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End. The Error Path should show: ValidateFileExtension -> [invalid] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End.",
