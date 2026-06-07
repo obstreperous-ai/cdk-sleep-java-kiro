@@ -1,0 +1,7 @@
+{
+  "task_id": "task-pipeline-wiring-validation",
+  "task_description": "Add input validation (Choice state in Step Functions) that validates file extension, write comprehensive CDK assertion tests verifying complete pipeline wiring, fix pre-existing test failures, update Lambda with defense-in-depth validation, and update ARCHITECTURE.md with refined Mermaid diagram showing the complete integrated pipeline.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add input validation (Choice state) to Step Functions state machine, fix pre-existing LambdaFunctionTest failures, write comprehensive CDK assertion tests verifying complete pipeline wiring including validation, and update the Lambda function to include file extension validation.",
+  "status": "in_progress",
+  "steps": [
+    "Step 1: Fix the 4 pre-existing test failures in src/test/java/com/myorg/LambdaFunctionTest.java. Issues: (a) testLambdaFunctionExists expects 1 Lambda but CDK creates 2 (S3 EventBridge custom resource handler creates a second one) - use hasResourceProperties instead of resourceCountIs, or assert >=1. (b) testStateMachineDefinitionContainsLambdaInvoke checks for 'lambda:invoke' but the CDK LambdaInvoke task generates 'arn:aws:states:::lambda:invoke' in the definition - fix the assertion string. (c) testLambdaExecutionRoleHasDynamoDbReadAccess and testLambdaExecutionRoleHasDynamoDbReadDataGrant assertions don't match actual grantReadData() policy format - check what grantReadData actually produces and fix assertions.",
+    "Step 2: Write new test class src/test/java/com/myorg/InputValidationTest.java (TDD - write failing tests first). Tests should verify: (a) A Choice state exists in the state machine definition that checks file extension. (b) The Choice state routes invalid extensions to the failure path (UpdateMetadataStatusFailed). (c) The Choice state routes valid extensions (.wav, .mp3, .ogg) to the processing path. (d) The validation Choice state is positioned after PutMetadataRecord and before ProcessAudioMetadata in the chain. Pattern: Use template.toJSON().toString() to inspect state machine definition JSON for Choice state type and conditions.",
+    "Step 3: Write new test class src/test/java/com/myorg/PipelineWiringTest.java (TDD - write failing tests first). Tests should verify complete end-to-end wiring: (a) EventBridge rule target references the state machine. (b) State machine definition contains all expected states in order: PutMetadataRecord -> ValidateFileExtension(Choice) -> ProcessAudioMetadata -> SynthesizeSpeech -> UpdateMetadataStatus -> PublishSuccessNotification. (c) Error paths from validation failure route through UpdateMetadataStatusFailed -> PublishFailureNotification. (d) All IAM permissions are least-privilege (DynamoDB scoped to table ARN, SNS publish scoped to topic ARNs, Lambda invoke scoped to function ARN, Polly scoped with iamResources). (e) State machine has CloudWatch logging enabled at ALL level.",
+    "Step 4: Implement the input validation Choice state in src/main/java/com/myorg/CdkBaseStack.java. Add a Choice state after PutMetadataRecord that: (a) Uses a Condition to check if $.object.key ends with .wav, .mp3, or .ogg (use StringMatches or custom condition). (b) Routes valid files to the existing ProcessAudioMetadata Lambda task. (c) Routes invalid files (default/otherwise) to the failure path (UpdateMetadataStatusFailed -> PublishFailureNotification). The Choice state should be named 'ValidateFileExtension'. Use software.amazon.awscdk.services.stepfunctions.Choice and software.amazon.awscdk.services.stepfunctions.Condition classes.",
+    "Step 5: Update the Lambda function src/main/resources/lambda/audio-processor/index.py to also validate file extension. Add validation that checks if the object_key ends with .wav, .mp3, or .ogg and raises ValueError('Unsupported audio format: <extension>') if not. This provides defense-in-depth since the Choice state handles it at the state machine level too.",
+    "Step 6: Run `mise exec -- mvn test` and confirm ALL tests pass (including the new InputValidationTest, PipelineWiringTest, and fixed LambdaFunctionTest)."
+  ],
+  "acceptance_criteria": [
+    "Running `mise exec -- mvn test` passes all tests with 0 failures and 0 errors",
+    "InputValidationTest verifies Choice state exists with file extension validation conditions",
+    "PipelineWiringTest verifies complete pipeline chain order and IAM permissions",
+    "LambdaFunctionTest all 10 tests pass (pre-existing failures fixed)",
+    "State machine definition contains a Choice state named ValidateFileExtension",
+    "Invalid file extensions route to the failure path (FAILED status + failure SNS)",
+    "Valid file extensions (.wav, .mp3, .ogg) route to ProcessAudioMetadata",
+    "Lambda function validates file extension and raises ValueError for unsupported formats"
+  ],
+  "verification": [
+    "Run `mise exec -- mvn compile` and confirm BUILD SUCCESS",
+    "Run `mise exec -- mvn test` and confirm all tests pass with 0 failures, 0 errors"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

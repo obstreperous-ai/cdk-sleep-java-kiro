@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to reflect the complete integrated pipeline with input validation. Refine the Mermaid diagram to show the ValidateFileExtension Choice state, validation flow (valid/invalid paths), and ensure all implemented components are marked as implemented (green). Add/update a section describing the end-to-end flow with validation points.",
+  "status": "pending",
+  "steps": [
+    "Step 1: Update the 'Implementation Status' section of ARCHITECTURE.md. Move 'Validate Input' from the 'Planned' table to the 'Implemented' table. Document it as a Choice state (not a Lambda) named 'ValidateFileExtension' that checks file extension (.wav, .mp3, .ogg) and routes invalid files to the failure path.",
+    "Step 2: Update the 'Orchestration Layer' section to include the ValidateFileExtension Choice state in the pipeline flow. The Happy Path should now be: Start -> PutItem (PROCESSING) -> ValidateFileExtension (Choice) -> [valid] -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End. The Error Path should show: ValidateFileExtension -> [invalid] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End.",
+    "Step 3: Refine the Mermaid diagram. Add the ValidateFileExtension Choice state between PutMetadataRecord and ProcessAudioMetadata. Show the valid path continuing to Lambda and the invalid path routing to the error flow. Mark ValidateFileExtension as implemented (green class). Remove or update any inconsistencies between the diagram and the actual implementation.",
+    "Step 4: Add or update a section describing validation points in the pipeline. Document that validation happens at two levels: (1) Step Functions Choice state validates file extension before processing begins, (2) Lambda function provides defense-in-depth validation of required fields and file extension.",
+    "Step 5: Ensure the diagram legend and class definitions are consistent - all implemented components use the 'implemented' class (green), planned components use the 'planned' class (gray dashed)."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md Mermaid diagram includes ValidateFileExtension Choice state",
+    "ValidateFileExtension is shown between PutMetadataRecord and ProcessAudioMetadata in the diagram",
+    "Valid/invalid paths are clearly shown in both the diagram and text description",
+    "Implementation Status table lists ValidateFileExtension as implemented",
+    "All currently implemented components are marked green in the diagram",
+    "The Orchestration Layer section accurately describes the complete pipeline flow with validation"
+  ],
+  "verification": [
+    "Run `mise exec -- mvn compile` to confirm no code changes broke anything",
+    "Run `mise exec -- mvn test` to confirm all tests still pass"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
