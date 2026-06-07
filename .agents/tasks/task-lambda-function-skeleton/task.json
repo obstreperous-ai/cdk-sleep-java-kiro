@@ -1,0 +1,7 @@
+{
+  "task_id": "task-lambda-function-skeleton",
+  "task_description": "Create a basic Lambda function skeleton (SleepAudioProcessor) and integrate it into the Step Functions state machine as a LambdaInvoke task between PutItem and Polly steps. Follow strict TDD with CDK assertion tests written first. Update ARCHITECTURE.md with the new component.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

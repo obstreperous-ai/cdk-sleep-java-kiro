@@ -31,6 +31,9 @@ import software.amazon.awscdk.services.stepfunctions.CatchProps;
 import software.amazon.awscdk.services.stepfunctions.TaskInput;
 import software.amazon.awscdk.services.sns.Topic;
 import software.amazon.awscdk.services.kms.Key;
+import software.amazon.awscdk.services.lambda.Code;
+import software.amazon.awscdk.services.lambda.Runtime;
+import software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke;
 
 import java.util.List;
 import java.util.Map;
@@ -78,6 +81,20 @@ public class CdkBaseStack extends Stack {
                 .removalPolicy(RemovalPolicy.RETAIN)
                 .build();
 
+        // Lambda Function - SleepAudioProcessor
+        software.amazon.awscdk.services.lambda.Function audioProcessorFunction =
+                software.amazon.awscdk.services.lambda.Function.Builder.create(this, "SleepAudioProcessor")
+                        .runtime(Runtime.PYTHON_3_12)
+                        .handler("index.handler")
+                        .code(Code.fromAsset("src/main/resources/lambda/audio-processor"))
+                        .environment(Map.of(
+                                "TABLE_NAME", metadataTable.getTableName()
+                        ))
+                        .build();
+
+        // Grant Lambda read access to DynamoDB metadata table
+        metadataTable.grantReadData(audioProcessorFunction);
+
         // DynamoDB PutItem task - writes initial metadata record with PROCESSING status
         CallAwsService putItemTask = CallAwsService.Builder.create(this, "PutMetadataRecord")
                 .service("dynamodb")
@@ -98,6 +115,19 @@ public class CdkBaseStack extends Stack {
 
         putItemTask.addRetry(RetryProps.builder()
                 .errors(List.of("DynamoDB.ProvisionedThroughputExceededException", "DynamoDB.InternalServerError", "States.Timeout"))
+                .maxAttempts(3)
+                .backoffRate(2.0)
+                .build());
+
+        // LambdaInvoke task - processes audio metadata between PutItem and Polly
+        LambdaInvoke lambdaInvokeTask = LambdaInvoke.Builder.create(this, "ProcessAudioMetadata")
+                .lambdaFunction(audioProcessorFunction)
+                .payloadResponseOnly(true)
+                .resultPath("$.lambdaResult")
+                .build();
+
+        lambdaInvokeTask.addRetry(RetryProps.builder()
+                .errors(List.of("Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"))
                 .maxAttempts(3)
                 .backoffRate(2.0)
                 .build());
@@ -228,8 +258,13 @@ public class CdkBaseStack extends Stack {
         // Wire failure path: UpdateItem(FAILED) -> SnsPublish(Failed)
         failureUpdateTask.next(failurePublishTask);
 
-        // Chain: PutItem -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
-        // with Catch on pollyTask, updateItemTask, and successPublishTask routing to failure path
+        // Chain: PutItem -> Lambda -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
+        // with Catch on lambdaInvokeTask, pollyTask, updateItemTask, and successPublishTask routing to failure path
+        lambdaInvokeTask.addCatch(failureUpdateTask, CatchProps.builder()
+                .errors(List.of("States.ALL"))
+                .resultPath("$.error")
+                .build());
+
         pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("States.ALL"))
                 .resultPath("$.error")
@@ -246,6 +281,7 @@ public class CdkBaseStack extends Stack {
                 .build());
 
         Chain chain = Chain.start(putItemTask)
+                .next(lambdaInvokeTask)
                 .next(pollyTask)
                 .next(updateItemTask)
                 .next(successPublishTask);

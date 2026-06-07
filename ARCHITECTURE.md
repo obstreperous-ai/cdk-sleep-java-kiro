@@ -187,7 +187,8 @@ This document describes the target architecture. Components are implemented incr
 | **S3 Input Bucket** | `SleepAudioInputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement, EventBridge notifications enabled |
 | **S3 Output Bucket** | `SleepAudioOutputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement |
 | **EventBridge Rule** | `SleepAudioInputRule` | Triggers on Object Created events from Input Bucket, targets Step Functions state machine with event detail as input |
-| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | PutItem -> Polly SynthesizeSpeech -> UpdateItem(COMPLETED) -> SNS Publish(success) chain with Catch-based error handling, CloudWatch logging (ALL), EventBridge triggered |
+| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | PutItem -> ProcessAudioMetadata(Lambda) -> Polly SynthesizeSpeech -> UpdateItem(COMPLETED) -> SNS Publish(success) chain with Catch-based error handling, CloudWatch logging (ALL), EventBridge triggered |
+| **Lambda: SleepAudioProcessor** | `SleepAudioProcessor` | Python 3.12 runtime, validates audio metadata (bucket, key), environment variable TABLE_NAME references DynamoDB table, granted DynamoDB read access |
 | **DynamoDB Metadata Table** | `SleepAudioMetadataTable` | PAY_PER_REQUEST billing, partition key audioId (S), AWS-owned encryption (DEFAULT), point-in-time recovery enabled, removal policy RETAIN |
 | **SNS Topic (Completed)** | `SleepAudioPipelineCompleted` | KMS-encrypted, receives success notifications after pipeline completion |
 | **SNS Topic (Failed)** | `SleepAudioPipelineFailed` | KMS-encrypted, receives failure notifications when pipeline errors occur |
@@ -199,22 +200,23 @@ The Step Functions state machine implements a pipeline with error handling and n
 
 **Happy Path:**
 ```
-Start -> PutItem (PROCESSING) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End
+Start -> PutItem (PROCESSING) -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End
 ```
 
-**Error Path (Catch on Polly, UpdateItem(COMPLETED), and SNS success publish tasks):**
+**Error Path (Catch on Lambda, Polly, UpdateItem(COMPLETED), and SNS success publish tasks):**
 ```
 [Error] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
 ```
 
 1. **PutMetadataRecord** (DynamoDB PutItem): Writes an initial metadata record with audioId (from S3 object key), status=PROCESSING, inputBucket, inputKey, and createdAt timestamp from the Step Functions context object.
-2. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
-3. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp. Has a Catch block for States.ALL errors that routes to the failure path.
-4. **PublishSuccessNotification** (SNS Publish): Publishes a curated success notification (audioId, status) to the SleepAudioPipelineCompleted topic. Has retry for transient errors and a Catch block for States.ALL errors that routes to the failure path.
-5. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and the error cause from the caught error.
-6. **PublishFailureNotification** (SNS Publish - error path): Publishes a curated failure notification (audioId, status, error, cause) to the SleepAudioPipelineFailed topic. Has retry for transient errors.
+2. **ProcessAudioMetadata** (LambdaInvoke): Invokes the SleepAudioProcessor Lambda function to validate the uploaded audio metadata (bucket name, object key). Returns enriched metadata with status=VALIDATED, audioId, and processingTimestamp. Has retry for Lambda.ServiceException and States.Timeout, and a Catch block for States.ALL errors that routes to the failure path.
+3. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
+4. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp. Has a Catch block for States.ALL errors that routes to the failure path.
+5. **PublishSuccessNotification** (SNS Publish): Publishes a curated success notification (audioId, status) to the SleepAudioPipelineCompleted topic. Has retry for transient errors and a Catch block for States.ALL errors that routes to the failure path.
+6. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and the error cause from the caught error.
+7. **PublishFailureNotification** (SNS Publish - error path): Publishes a curated failure notification (audioId, status, error, cause) to the SleepAudioPipelineFailed topic. Has retry for transient errors.
 
-All DynamoDB tasks use `CallAwsService` for direct SDK integration with retry policies for transient errors. SNS tasks use the `SnsPublish` L2 construct. The state machine has full CloudWatch logging enabled (level ALL) via a dedicated log group. The DynamoDB table is granted read/write access via `table.grantReadWriteData(stateMachine)` and both SNS topics are granted publish access via `topic.grantPublish(stateMachine)` for least-privilege IAM permissions.
+All DynamoDB tasks use `CallAwsService` for direct SDK integration with retry policies for transient errors. SNS tasks use the `SnsPublish` L2 construct. The Lambda task uses the `LambdaInvoke` L2 construct which automatically grants the state machine role `lambda:InvokeFunction` permission. The state machine has full CloudWatch logging enabled (level ALL) via a dedicated log group. The DynamoDB table is granted read/write access via `table.grantReadWriteData(stateMachine)` and both SNS topics are granted publish access via `topic.grantPublish(stateMachine)` for least-privilege IAM permissions.
 
 ### Notification and Error Handling
 
@@ -224,7 +226,7 @@ The pipeline uses two KMS-encrypted SNS topics for notifications:
 - **SleepAudioPipelineFailed**: Receives notifications when the pipeline encounters an unrecoverable error (after the FAILED status update).
 
 Error handling uses the Step Functions Catch mechanism:
-- `Catch` blocks on the Polly task, UpdateItem(COMPLETED) task, and SNS success publish task capture all errors (`States.ALL`) and route execution to the failure path.
+- `Catch` blocks on the Lambda task, Polly task, UpdateItem(COMPLETED) task, and SNS success publish task capture all errors (`States.ALL`) and route execution to the failure path.
 - The error details are stored in `$.error` via the `resultPath` configuration.
 - The failure path updates the DynamoDB record with status=FAILED and the detailed error cause (`$.error.Cause`), then publishes a curated failure notification (audioId, status, error type, cause) to the failure SNS topic.
 - Both SNS publish tasks have retry configuration for transient errors.
@@ -258,6 +260,7 @@ flowchart TD
 
     subgraph Orchestration["Orchestration (Step Functions)"]
         SFN["Step Functions State Machine"]
+        ProcessAudio["Process Audio Metadata\n(Lambda)"]
         Validate["Validate Input\n(Lambda)"]
         Choice{"Processing\nChoice"}
         PollyTTS["Polly TTS\n(Lambda)"]
@@ -290,8 +293,10 @@ flowchart TD
     %% Main data flow
     S3Input -->|"PutObject Event"| EBRule
     EBRule -->|"Triggers Execution"| SFN
-    SFN --> Validate
     SFN -->|"PutItem (PROCESSING)"| DDB
+    SFN --> ProcessAudio
+    ProcessAudio -->|"Validated Metadata"| PollyTTS
+    SFN --> Validate
     Validate -->|"Valid Input"| Choice
     Choice -->|"Text Script Provided"| PollyTTS
     Choice -->|"No Text Script"| BedrockEnhance
@@ -307,10 +312,12 @@ flowchart TD
 
     %% Error flow
     Validate -->|"Validation Failed"| ErrorPath
+    ProcessAudio -->|"Catch: States.ALL"| ErrorPath
     SFN -->|"Catch: States.ALL"| ErrorPath
     SFN -->|"UpdateItem(COMPLETED) then Publish"| SuccessPath
 
     %% Observability connections
+    ProcessAudio -.->|"Emits Logs"| CWLogs
     Validate -.->|"Emits Logs"| CWLogs
     PollyTTS -.->|"Emits Logs"| CWLogs
     BedrockEnhance -.->|"Emits Logs"| CWLogs
@@ -325,6 +332,7 @@ flowchart TD
     DDB -.->|"Encrypted By"| KMSKeys
     SNSTopic -.->|"Encrypted By"| KMSKeys
     SFN -.->|"Assumes"| IAMRoles
+    ProcessAudio -.->|"Assumes"| IAMRoles
     Validate -.->|"Assumes"| IAMRoles
     PollyTTS -.->|"Assumes"| IAMRoles
     BedrockEnhance -.->|"Assumes"| IAMRoles
@@ -334,7 +342,7 @@ flowchart TD
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath implemented
+    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath,ProcessAudio implemented
     class Validate,Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
 
     %% Legend:
