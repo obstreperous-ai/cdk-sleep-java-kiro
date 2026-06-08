@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Add expanded pipeline test coverage (end-to-end flow, error paths, snapshot test) and implement multi-environment support via CDK context plus a CDK Pipeline construct skeleton for deployment preparation. Following TDD: write failing tests first for environment-parameterized stack behavior and pipeline construct, then implement CdkBaseStack to accept context for environment config, add a PipelineStack skeleton, update CdkBaseApp to read context, and update ARCHITECTURE.md.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Write new test file src/test/java/com/myorg/EndToEndFlowTest.java: Tests that verify the complete happy-path state chain order (PutMetadataRecord -> ValidateFileExtension -> ProcessAudioMetadata -> SynthesizeSpeech -> UpdateMetadataStatus -> PublishSuccessNotification) by parsing the DefinitionString JSON and following Next fields sequentially. Also verify the full error path (any task Catch -> UpdateMetadataStatusFailed -> PublishFailureNotification -> End). Use the Jackson-based getStateMachineDefinition() helper pattern from PipelineWiringTest.java.",
     "Step 2 - Write new test file src/test/java/com/myorg/SnapshotTest.java: A snapshot-style test that synthesizes the stack and verifies the total resource counts for key resource types (S3 buckets=2, DynamoDB tables=1, StepFunctions state machines=1, EventBridge rules=1, Lambda functions>=1, SNS topics=2, KMS keys=1, LogGroups>=1). This ensures no resources are accidentally added or removed.",
@@ -33,5 +33,5 @@
     "Run 'mvn -e -q compile exec:java' and confirm CDK synth succeeds"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 72 tests pass (19 new tests added: EndToEndFlowTest=5, SnapshotTest=7, MultiEnvironmentTest=5, PipelineConstructTest=2). CDK synth succeeds with NODE_OPTIONS cleared. PipelineStack uses CodePipeline from aws-cdk-lib pipelines module with ConnectionSourceOptions. Multi-environment support reads context via tryGetContext and defaults to dev. Environment tag applied via Tags.of(this).add(). cdk.json now includes environment:dev in context."
 }
