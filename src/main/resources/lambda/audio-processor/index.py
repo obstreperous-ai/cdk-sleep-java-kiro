@@ -43,6 +43,13 @@ def handler(event, context):
         logger.error("Processing failed: Missing required field: object.key")
         raise ValueError("Missing required field: object.key")
 
+    # Validate file extension (defense-in-depth - Choice state also validates)
+    valid_extensions = (".wav", ".mp3", ".ogg")
+    if not object_key.lower().endswith(valid_extensions):
+        extension = object_key.rsplit(".", 1)[-1] if "." in object_key else ""
+        logger.error("Processing failed: Unsupported audio format: %s", extension)
+        raise ValueError(f"Unsupported audio format: {extension}")
+
     audio_id = object_key
 
     response = {

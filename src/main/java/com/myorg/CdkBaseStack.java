@@ -26,6 +26,10 @@ import software.amazon.awscdk.services.dynamodb.AttributeType;
 import software.amazon.awscdk.services.dynamodb.TableEncryption;
 import software.amazon.awscdk.services.stepfunctions.JsonPath;
 import software.amazon.awscdk.services.stepfunctions.Chain;
+import software.amazon.awscdk.services.stepfunctions.Choice;
+import software.amazon.awscdk.services.stepfunctions.Condition;
+import software.amazon.awscdk.services.stepfunctions.Pass;
+import software.amazon.awscdk.services.stepfunctions.Result;
 import software.amazon.awscdk.services.stepfunctions.RetryProps;
 import software.amazon.awscdk.services.stepfunctions.CatchProps;
 import software.amazon.awscdk.services.stepfunctions.TaskInput;
@@ -280,11 +284,45 @@ public class CdkBaseStack extends Stack {
                 .resultPath("$.error")
                 .build());
 
-        Chain chain = Chain.start(putItemTask)
-                .next(lambdaInvokeTask)
+        // Input validation Choice state - validates file extension before processing
+        Choice validateFileExtension = Choice.Builder.create(this, "ValidateFileExtension")
+                .build();
+
+        // Valid extensions route to ProcessAudioMetadata
+        Condition isWav = Condition.stringMatches("$.object.key", "*.wav");
+        Condition isMp3 = Condition.stringMatches("$.object.key", "*.mp3");
+        Condition isOgg = Condition.stringMatches("$.object.key", "*.ogg");
+
+        // Pass state injects synthetic error context for the validation failure path.
+        // The failure tasks reference $.error.Error and $.error.Cause which are normally
+        // populated by Catch blocks. Without this, the Choice otherwise path would fail
+        // at runtime because those fields would not exist in the state input.
+        Pass validationErrorState = Pass.Builder.create(this, "ValidationError")
+                .result(Result.fromObject(Map.of(
+                        "Error", "ValidationError",
+                        "Cause", "Unsupported file extension"
+                )))
+                .resultPath("$.error")
+                .build();
+
+        // Wire: ValidationError Pass -> UpdateMetadataStatusFailed -> PublishFailureNotification
+        validationErrorState.next(failureUpdateTask);
+
+        // Processing chain: Lambda -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
+        Chain processingChain = Chain.start(lambdaInvokeTask)
                 .next(pollyTask)
                 .next(updateItemTask)
                 .next(successPublishTask);
+
+        validateFileExtension
+                .when(isWav, processingChain)
+                .when(isMp3, processingChain)
+                .when(isOgg, processingChain)
+                .otherwise(validationErrorState);
+
+        // Main chain: PutItem -> ValidateFileExtension (Choice)
+        Chain chain = Chain.start(putItemTask)
+                .next(validateFileExtension);
 
         // Step Functions State Machine with chained tasks and logging
         StateMachine stateMachine = StateMachine.Builder.create(this, "SleepAudioPipelineStateMachine")

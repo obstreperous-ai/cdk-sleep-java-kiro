@@ -1,0 +1,27 @@
+{
+  "project_type": "AWS CDK Java application - event-driven sleep audio processing pipeline",
+  "language": "Java 17",
+  "build_system": "Maven with mise for Java version management. Must run `mise trust` first, then `mise exec -- mvn <command>`. Maven needs proxy config at ~/.m2/settings.xml (already configured).",
+  "test_framework": "JUnit 5 (version 5.7.1) with CDK assertions (Template.fromStack, Match.objectLike). Tests are in src/test/java/com/myorg/. The Surefire plugin clears NODE_OPTIONS env var to avoid Jsii issues.",
+  "build_command": "mise exec -- mvn compile",
+  "test_command": "mise exec -- mvn test",
+  "verification_instructions": "1. Run `mise exec -- mvn compile` and confirm BUILD SUCCESS. 2. Run `mise exec -- mvn test` and confirm all tests pass (note: LambdaFunctionTest has 4 pre-existing failures that need fixing). 3. Check for deprecation warnings in compile output.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "1. `mise trust` in project root. 2. Ensure ~/.m2/settings.xml has proxy config for BigWeaverExecEnvMgnt-ProxyLB-4d485583b9a55f82.elb.us-east-1.amazonaws.com:3128. 3. `mise exec -- mvn compile` to download dependencies.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - Maven Central accessible via proxy. No CDK CLI available for `cdk synth` (NODE_OPTIONS conflicts). Use CDK assertions (Template.fromStack) for validation instead. Java 17 via mise.",
+  "contribution_requirements": "Strict TDD: write failing tests first, then implement. Conventional commits. Keep ARCHITECTURE.md Mermaid diagram in sync. Every CDK construct needs a test. ARCHITECTURE.md is the source of truth.",
+  "key_patterns": "CDK stack in CdkBaseStack.java uses L2 constructs (Bucket, Table, Topic, StateMachine) and CallAwsService for DynamoDB/Polly direct SDK integration. Tests use Template.fromStack() with Match.objectLike() for assertions. Test files are per-feature (CdkBaseTest, DynamoDbMetadataTest, StepFunctionsTest, LambdaFunctionTest, SnsNotificationTest). State machine uses Chain pattern with Catch blocks routing to failure path.",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/java/com/myorg/CdkBaseApp.java",
+    "src/main/resources/lambda/audio-processor/index.py",
+    "src/test/java/com/myorg/CdkBaseTest.java",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "src/test/java/com/myorg/DynamoDbMetadataTest.java",
+    "src/test/java/com/myorg/LambdaFunctionTest.java",
+    "src/test/java/com/myorg/SnsNotificationTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml"
+  ],
+  "directory_structure": "Standard Maven layout. src/main/java/com/myorg/ has CdkBaseApp.java (entry) and CdkBaseStack.java (all infrastructure). src/test/java/com/myorg/ has test files. src/main/resources/lambda/audio-processor/ has the Python Lambda code. ARCHITECTURE.md at root."
+}

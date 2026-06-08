@@ -187,7 +187,8 @@ This document describes the target architecture. Components are implemented incr
 | **S3 Input Bucket** | `SleepAudioInputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement, EventBridge notifications enabled |
 | **S3 Output Bucket** | `SleepAudioOutputBucket` | SSE-S3 encryption, versioning enabled, block public access, SSL enforcement |
 | **EventBridge Rule** | `SleepAudioInputRule` | Triggers on Object Created events from Input Bucket, targets Step Functions state machine with event detail as input |
-| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | PutItem -> ProcessAudioMetadata(Lambda) -> Polly SynthesizeSpeech -> UpdateItem(COMPLETED) -> SNS Publish(success) chain with Catch-based error handling, CloudWatch logging (ALL), EventBridge triggered |
+| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | PutItem -> ValidateFileExtension(Choice) -> ProcessAudioMetadata(Lambda) -> Polly SynthesizeSpeech -> UpdateItem(COMPLETED) -> SNS Publish(success) chain with Catch-based error handling, CloudWatch logging (ALL), EventBridge triggered |
+| **ValidateFileExtension (Choice State)** | `ValidateFileExtension` | Choice state that checks `$.object.key` for valid audio file extensions (.wav, .mp3, .ogg). Valid extensions proceed to ProcessAudioMetadata; invalid extensions route to failure path (UpdateMetadataStatusFailed -> PublishFailureNotification) |
 | **Lambda: SleepAudioProcessor** | `SleepAudioProcessor` | Python 3.12 runtime, validates audio metadata (bucket, key), environment variable TABLE_NAME references DynamoDB table, granted DynamoDB read access |
 | **DynamoDB Metadata Table** | `SleepAudioMetadataTable` | PAY_PER_REQUEST billing, partition key audioId (S), AWS-owned encryption (DEFAULT), point-in-time recovery enabled, removal policy RETAIN |
 | **SNS Topic (Completed)** | `SleepAudioPipelineCompleted` | KMS-encrypted, receives success notifications after pipeline completion |
@@ -196,11 +197,16 @@ This document describes the target architecture. Components are implemented incr
 
 ### Orchestration Layer
 
-The Step Functions state machine implements a pipeline with error handling and notifications:
+The Step Functions state machine implements a pipeline with input validation, error handling, and notifications:
 
 **Happy Path:**
 ```
-Start -> PutItem (PROCESSING) -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End
+Start -> PutItem (PROCESSING) -> ValidateFileExtension (Choice) -> [valid] -> ProcessAudioMetadata (Lambda) -> Polly SynthesizeSpeech -> UpdateItem (COMPLETED) -> SNS Publish (Success) -> End
+```
+
+**Validation Failure Path:**
+```
+PutItem (PROCESSING) -> ValidateFileExtension (Choice) -> [invalid extension] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
 ```
 
 **Error Path (Catch on Lambda, Polly, UpdateItem(COMPLETED), and SNS success publish tasks):**
@@ -209,12 +215,13 @@ Start -> PutItem (PROCESSING) -> ProcessAudioMetadata (Lambda) -> Polly Synthesi
 ```
 
 1. **PutMetadataRecord** (DynamoDB PutItem): Writes an initial metadata record with audioId (from S3 object key), status=PROCESSING, inputBucket, inputKey, and createdAt timestamp from the Step Functions context object.
-2. **ProcessAudioMetadata** (LambdaInvoke): Invokes the SleepAudioProcessor Lambda function to validate the uploaded audio metadata (bucket name, object key). Returns enriched metadata with status=VALIDATED, audioId, and processingTimestamp. Has retry for Lambda.ServiceException and States.Timeout, and a Catch block for States.ALL errors that routes to the failure path.
-3. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
-4. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp. Has a Catch block for States.ALL errors that routes to the failure path.
-5. **PublishSuccessNotification** (SNS Publish): Publishes a curated success notification (audioId, status) to the SleepAudioPipelineCompleted topic. Has retry for transient errors and a Catch block for States.ALL errors that routes to the failure path.
-6. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and the error cause from the caught error.
-7. **PublishFailureNotification** (SNS Publish - error path): Publishes a curated failure notification (audioId, status, error, cause) to the SleepAudioPipelineFailed topic. Has retry for transient errors.
+2. **ValidateFileExtension** (Choice State): Checks if `$.object.key` matches a valid audio file extension (.wav, .mp3, .ogg) using StringMatches conditions. Valid files proceed to ProcessAudioMetadata. Invalid files route to the failure path (UpdateMetadataStatusFailed -> PublishFailureNotification).
+3. **ProcessAudioMetadata** (LambdaInvoke): Invokes the SleepAudioProcessor Lambda function to validate the uploaded audio metadata (bucket name, object key). Returns enriched metadata with status=VALIDATED, audioId, and processingTimestamp. Has retry for Lambda.ServiceException and States.Timeout, and a Catch block for States.ALL errors that routes to the failure path.
+4. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
+5. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp. Has a Catch block for States.ALL errors that routes to the failure path.
+6. **PublishSuccessNotification** (SNS Publish): Publishes a curated success notification (audioId, status) to the SleepAudioPipelineCompleted topic. Has retry for transient errors and a Catch block for States.ALL errors that routes to the failure path.
+7. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and the error cause from the caught error.
+8. **PublishFailureNotification** (SNS Publish - error path): Publishes a curated failure notification (audioId, status, error, cause) to the SleepAudioPipelineFailed topic. Has retry for transient errors.
 
 All DynamoDB tasks use `CallAwsService` for direct SDK integration with retry policies for transient errors. SNS tasks use the `SnsPublish` L2 construct. The Lambda task uses the `LambdaInvoke` L2 construct which automatically grants the state machine role `lambda:InvokeFunction` permission. The state machine has full CloudWatch logging enabled (level ALL) via a dedicated log group. The DynamoDB table is granted read/write access via `table.grantReadWriteData(stateMachine)` and both SNS topics are granted publish access via `topic.grantPublish(stateMachine)` for least-privilege IAM permissions.
 
@@ -233,11 +240,34 @@ Error handling uses the Step Functions Catch mechanism:
 
 **Note:** The current `SynthesizeSpeech` task uses the synchronous Polly API which returns a binary AudioStream. Step Functions cannot serialize binary data into state JSON, so this skeleton will produce a runtime error if executed. In a future iteration, this will be replaced with `StartSpeechSynthesisTask` (the asynchronous Polly API that writes output directly to S3), which is the appropriate API for Step Functions orchestration.
 
+### Input Validation
+
+The pipeline validates input at two levels, providing defense-in-depth:
+
+**Level 1: Step Functions Choice State (ValidateFileExtension)**
+
+The `ValidateFileExtension` Choice state is the first validation checkpoint after the initial DynamoDB PutItem. It evaluates `$.object.key` using StringMatches conditions to check if the uploaded file has a supported audio extension:
+- `*.wav`
+- `*.mp3`
+- `*.ogg`
+
+If the file extension does not match any of these patterns, the state machine immediately routes to the failure path (UpdateMetadataStatusFailed -> PublishFailureNotification) without invoking any Lambda functions. This prevents unnecessary compute costs for clearly invalid uploads.
+
+**Level 2: Lambda Function (Defense-in-Depth)**
+
+The `ProcessAudioMetadata` Lambda function performs additional validation as a secondary check:
+- Validates that required fields (bucket name, object key) are present in the event payload
+- Re-validates the file extension (.wav, .mp3, .ogg) as defense-in-depth
+- Raises `ValueError` with a descriptive message for unsupported formats
+
+This two-level approach ensures that:
+1. Invalid files are rejected early at the state machine level (low cost, no Lambda invocation)
+2. Even if the Choice state logic is bypassed or misconfigured, the Lambda provides a safety net
+
 ### Planned
 
 | Component | Notes |
 |-----------|-------|
-| Lambda: Validate Input | Validates uploaded file format, size, and metadata |
 | Lambda: Polly TTS | Invokes Amazon Polly Neural TTS for voice generation |
 | Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged) |
 | Lambda: Metadata Extraction | Extracts final audio metadata, writes to DynamoDB |
@@ -260,10 +290,13 @@ flowchart TD
 
     subgraph Orchestration["Orchestration (Step Functions)"]
         SFN["Step Functions State Machine"]
-        ProcessAudio["Process Audio Metadata\n(Lambda)"]
-        Validate["Validate Input\n(Lambda)"]
+        PutMetadata["PutMetadataRecord\n(DynamoDB PutItem)"]
+        ValidateExt{"ValidateFileExtension\n(Choice State)"}
+        ProcessAudio["ProcessAudioMetadata\n(Lambda)"]
+        PollyTTS["SynthesizeSpeech\n(Polly)"]
+        UpdateCompleted["UpdateMetadataStatus\n(DynamoDB: COMPLETED)"]
+        UpdateFailed["UpdateMetadataStatusFailed\n(DynamoDB: FAILED)"]
         Choice{"Processing\nChoice"}
-        PollyTTS["Polly TTS\n(Lambda)"]
         BedrockEnhance["Bedrock Enhancement\n(Lambda, Optional)"]
         MetadataExtract["Metadata Extraction\n(Lambda)"]
     end
@@ -274,9 +307,8 @@ flowchart TD
     end
 
     subgraph Notification["Notification Layer"]
-        SNSTopic["SNS Topics\nKMS Encrypted"]
-        SuccessPath["Success Notification\n(Completed Topic)"]
-        ErrorPath["Error Notification\n(Failed Topic)"]
+        SuccessPath["PublishSuccessNotification\n(Completed Topic)"]
+        ErrorPath["PublishFailureNotification\n(Failed Topic)"]
     end
 
     subgraph Observability["Observability"]
@@ -290,38 +322,38 @@ flowchart TD
         KMSKeys["KMS Keys\nEncryption at Rest"]
     end
 
-    %% Main data flow
+    %% Main data flow - implemented pipeline
     S3Input -->|"PutObject Event"| EBRule
     EBRule -->|"Triggers Execution"| SFN
-    SFN -->|"PutItem (PROCESSING)"| DDB
-    SFN --> ProcessAudio
-    ProcessAudio -->|"Validated Metadata"| PollyTTS
-    SFN --> Validate
-    Validate -->|"Valid Input"| Choice
+    SFN --> PutMetadata
+    PutMetadata -->|"status=PROCESSING"| DDB
+    PutMetadata --> ValidateExt
+    ValidateExt -->|"Valid Extension\n(.wav, .mp3, .ogg)"| ProcessAudio
+    ValidateExt -->|"Invalid Extension"| UpdateFailed
+    ProcessAudio --> PollyTTS
+    PollyTTS --> UpdateCompleted
+    UpdateCompleted -->|"status=COMPLETED"| DDB
+    UpdateCompleted --> SuccessPath
+
+    %% Error/Catch flow
+    ProcessAudio -->|"Catch: States.ALL"| UpdateFailed
+    PollyTTS -->|"Catch: States.ALL"| UpdateFailed
+    UpdateCompleted -->|"Catch: States.ALL"| UpdateFailed
+    SuccessPath -->|"Catch: States.ALL"| UpdateFailed
+    UpdateFailed -->|"status=FAILED"| DDB
+    UpdateFailed --> ErrorPath
+
+    %% Planned data flow
     Choice -->|"Text Script Provided"| PollyTTS
     Choice -->|"No Text Script"| BedrockEnhance
-    PollyTTS -->|"Stores Processed Audio"| S3Output
     BedrockEnhance -->|"Stores Processed Audio"| S3Output
-    PollyTTS --> MetadataExtract
+    PollyTTS -->|"Stores Processed Audio"| S3Output
     BedrockEnhance --> MetadataExtract
     MetadataExtract -->|"Reads Processed Audio"| S3Output
     MetadataExtract -->|"Writes Metadata"| DDB
-    SFN -->|"UpdateItem (COMPLETED)"| DDB
-    MetadataExtract -->|"Publishes Notification"| SNSTopic
-    SNSTopic --> SuccessPath
-
-    %% Error flow
-    Validate -->|"Validation Failed"| ErrorPath
-    ProcessAudio -->|"Catch: States.ALL"| ErrorPath
-    SFN -->|"Catch: States.ALL"| ErrorPath
-    SFN -->|"UpdateItem(COMPLETED) then Publish"| SuccessPath
 
     %% Observability connections
     ProcessAudio -.->|"Emits Logs"| CWLogs
-    Validate -.->|"Emits Logs"| CWLogs
-    PollyTTS -.->|"Emits Logs"| CWLogs
-    BedrockEnhance -.->|"Emits Logs"| CWLogs
-    MetadataExtract -.->|"Emits Logs"| CWLogs
     SFN -.->|"Execution History"| CWLogs
     CWLogs -.->|"Triggers"| CWAlarms
     SFN -.->|"Traces"| XRay
@@ -330,20 +362,15 @@ flowchart TD
     S3Input -.->|"Encrypted By"| KMSKeys
     S3Output -.->|"Encrypted By"| KMSKeys
     DDB -.->|"Encrypted By"| KMSKeys
-    SNSTopic -.->|"Encrypted By"| KMSKeys
     SFN -.->|"Assumes"| IAMRoles
     ProcessAudio -.->|"Assumes"| IAMRoles
-    Validate -.->|"Assumes"| IAMRoles
-    PollyTTS -.->|"Assumes"| IAMRoles
-    BedrockEnhance -.->|"Assumes"| IAMRoles
-    MetadataExtract -.->|"Assumes"| IAMRoles
 
     %% Styling: Green for implemented components, gray/dashed for planned
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PollyTTS,DDB,SNSTopic,SuccessPath,ErrorPath,ProcessAudio implemented
-    class Validate,Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
+    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,PollyTTS,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath implemented
+    class Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
 
     %% Legend:
     %% Green (solid border) = Implemented
