@@ -33,3 +33,6 @@ jobs:
 
       - name: Run CDK synth
         run: cdk synth
+
+      - name: Run CDK synth (prod environment)
+        run: cdk synth -c environment=prod

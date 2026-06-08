@@ -39,6 +39,8 @@ import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke;
 
+import software.amazon.awscdk.Tags;
+
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +51,15 @@ public class CdkBaseStack extends Stack {
 
     public CdkBaseStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
+
+        // Read environment context value, default to "dev"
+        String environment = (String) this.getNode().tryGetContext("environment");
+        if (environment == null) {
+            environment = "dev";
+        }
+
+        // Apply Environment tag to all resources in this stack
+        Tags.of(this).add("Environment", environment);
 
         // S3 Input Bucket - receives sleep audio files
         Bucket inputBucket = Bucket.Builder.create(this, "SleepAudioInputBucket")
