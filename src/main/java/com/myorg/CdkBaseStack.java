@@ -53,10 +53,8 @@ public class CdkBaseStack extends Stack {
         super(scope, id, props);
 
         // Read environment context value, default to "dev"
-        String environment = (String) this.getNode().tryGetContext("environment");
-        if (environment == null) {
-            environment = "dev";
-        }
+        Object envObj = this.getNode().tryGetContext("environment");
+        String environment = envObj instanceof String ? (String) envObj : "dev";
 
         // Apply Environment tag to all resources in this stack
         Tags.of(this).add("Environment", environment);

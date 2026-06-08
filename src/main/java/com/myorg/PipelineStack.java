@@ -17,12 +17,28 @@ public class PipelineStack extends Stack {
     public PipelineStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
 
+        Object connectionArnObj = this.getNode().tryGetContext("pipeline:connectionArn");
+        if (!(connectionArnObj instanceof String) || ((String) connectionArnObj).isEmpty()) {
+            throw new IllegalArgumentException(
+                "Context value 'pipeline:connectionArn' is required. " +
+                "Set it via -c pipeline:connectionArn=arn:aws:codestar-connections:...");
+        }
+        String connectionArn = (String) connectionArnObj;
+
+        Object repositoryObj = this.getNode().tryGetContext("pipeline:repository");
+        if (!(repositoryObj instanceof String) || ((String) repositoryObj).isEmpty()) {
+            throw new IllegalArgumentException(
+                "Context value 'pipeline:repository' is required. " +
+                "Set it via -c pipeline:repository=owner/repo");
+        }
+        String repository = (String) repositoryObj;
+
         CodePipeline pipeline = CodePipeline.Builder.create(this, "SleepAudioPipeline")
                 .pipelineName("SleepAudioPipeline")
                 .synth(ShellStep.Builder.create("Synth")
-                        .input(CodePipelineSource.connection("owner/repo", "main",
+                        .input(CodePipelineSource.connection(repository, "main",
                                 software.amazon.awscdk.pipelines.ConnectionSourceOptions.builder()
-                                        .connectionArn("arn:aws:codestar-connections:us-east-1:123456789012:connection/placeholder-connection-id")
+                                        .connectionArn(connectionArn)
                                         .build()))
                         .commands(List.of("mvn compile", "npx cdk synth"))
                         .build())
