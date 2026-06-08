@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Add expanded pipeline test coverage (end-to-end flow, error paths, snapshot test) and implement multi-environment support via CDK context plus a CDK Pipeline construct skeleton for deployment preparation. Following TDD: write failing tests first for environment-parameterized stack behavior and pipeline construct, then implement CdkBaseStack to accept context for environment config, add a PipelineStack skeleton, update CdkBaseApp to read context, and update ARCHITECTURE.md.",
+  "status": "pending",
+  "steps": [
+    "Step 1 - Write new test file src/test/java/com/myorg/EndToEndFlowTest.java: Tests that verify the complete happy-path state chain order (PutMetadataRecord -> ValidateFileExtension -> ProcessAudioMetadata -> SynthesizeSpeech -> UpdateMetadataStatus -> PublishSuccessNotification) by parsing the DefinitionString JSON and following Next fields sequentially. Also verify the full error path (any task Catch -> UpdateMetadataStatusFailed -> PublishFailureNotification -> End). Use the Jackson-based getStateMachineDefinition() helper pattern from PipelineWiringTest.java.",
+    "Step 2 - Write new test file src/test/java/com/myorg/SnapshotTest.java: A snapshot-style test that synthesizes the stack and verifies the total resource counts for key resource types (S3 buckets=2, DynamoDB tables=1, StepFunctions state machines=1, EventBridge rules=1, Lambda functions>=1, SNS topics=2, KMS keys=1, LogGroups>=1). This ensures no resources are accidentally added or removed.",
+    "Step 3 - Write new test file src/test/java/com/myorg/MultiEnvironmentTest.java: Tests that instantiate CdkBaseStack with CDK context values (environment=dev, environment=prod) and verify environment-specific behavior. For 'prod' environment: verify S3 versioning is enabled, SNS encryption is enabled, DynamoDB PAY_PER_REQUEST billing. For 'dev' environment: verify the stack still synthesizes correctly. Test that an 'environment' tag is applied to the stack. These tests will FAIL initially because CdkBaseStack does not yet read context values.",
+    "Step 4 - Write new test file src/test/java/com/myorg/PipelineConstructTest.java: Tests that verify a PipelineStack class exists and contains an AWS CodePipeline resource (AWS::CodePipeline::Pipeline) or at minimum can be synthesized. These tests will FAIL initially because PipelineStack does not exist yet.",
+    "Step 5 - Implement multi-environment support in CdkBaseStack.java: Read 'environment' context value from the CDK app context (this.getNode().tryGetContext('environment')). Default to 'dev' if not specified. Apply a 'Environment' tag to the stack using Tags.of(this).add(). Keep existing behavior unchanged for backward compatibility (the stack currently uses SSE-S3 encryption, versioning enabled, PAY_PER_REQUEST billing - all of these should remain the same regardless of environment for now, matching the current implementation).",
+    "Step 6 - Update CdkBaseApp.java: Read the 'environment' context value and pass it through. Create the main CdkBaseStack. Keep the app simple - the pipeline construct will be optional and environment-aware.",
+    "Step 7 - Create src/main/java/com/myorg/PipelineStack.java: A skeleton CDK Pipeline stack that extends Stack, creates a CodePipeline using software.amazon.awscdk.pipelines.CodePipeline with a ShellStep synth step. It should reference the app's source repository (placeholder GitHub connection ARN) and include a single deployment stage. This is a skeleton for future CI/CD - it should synthesize but does not need to be fully functional.",
+    "Step 8 - Update cdk.json: Add 'environment' to the context section with default value 'dev'. This ensures cdk synth works without explicit -c flag.",
+    "Step 9 - Update .github/workflows/ci.yml: Add an additional step that runs 'cdk synth' with -c environment=prod to verify multi-environment synthesis works in CI.",
+    "Step 10 - Update ARCHITECTURE.md: Add a 'Deployment' section describing the CDK Pipeline skeleton and multi-environment approach. Update the Implementation Status table to include PipelineStack. Update the Mermaid diagram to show a CDK Pipeline construct connecting to the application stacks. Mark environment-related constructs as implemented."
+  ],
+  "acceptance_criteria": [
+    "All new tests in EndToEndFlowTest.java pass and verify complete happy-path state chain traversal",
+    "SnapshotTest.java passes with correct resource counts",
+    "MultiEnvironmentTest.java passes - stack accepts 'environment' context, applies Environment tag",
+    "PipelineConstructTest.java passes - PipelineStack synthesizes successfully",
+    "CdkBaseStack reads 'environment' context and applies tags",
+    "PipelineStack.java exists and synthesizes without errors",
+    "cdk.json includes environment context default",
+    "CI workflow includes multi-environment synth step",
+    "ARCHITECTURE.md updated with deployment section and Mermaid diagram changes",
+    "All 53+ tests pass (new tests added, zero existing tests broken)",
+    "mvn -e -q compile exec:java succeeds (CDK synth)"
+  ],
+  "verification": [
+    "Run 'mvn test' and confirm all tests pass including new test files",
+    "Run 'mvn -e -q compile exec:java' and confirm CDK synth succeeds"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

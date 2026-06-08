@@ -1,0 +1,7 @@
+{
+  "task_id": "task-pipeline-testing-deployment-prep",
+  "task_description": "Issue #17: TDD Pipeline Testing, Refinement and Deployment Preparation. Expand test coverage (end-to-end flow, error paths, snapshot tests), implement multi-environment support via CDK context, add CDK Pipeline construct skeleton, and update ARCHITECTURE.md.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

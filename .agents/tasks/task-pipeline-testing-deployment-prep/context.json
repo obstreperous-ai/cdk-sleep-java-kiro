@@ -1,0 +1,31 @@
+{
+  "project_type": "AWS CDK Java application - event-driven sleep audio processing pipeline",
+  "language": "Java 17 (compiles with Java 25 in sandbox, targets 17 via maven-compiler-plugin)",
+  "build_system": "Maven 3.9.10 with exec-maven-plugin for CDK app execution. Proxy configured in ~/.m2/settings.xml. Surefire sets NODE_OPTIONS to empty for Jsii compatibility.",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack(), Match.*). Tests parse state machine DefinitionString JSON using Jackson ObjectMapper to verify state transitions.",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "1. Run 'mvn test' and confirm all tests pass. 2. Run 'mvn -e -q compile exec:java' to verify CDK synth succeeds.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Maven proxy already configured in ~/.m2/settings.xml. All CDK dependencies cached in local repository. Run 'mvn compile' to verify build.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - Maven Central accessible via proxy. Java 25 runtime with Java 17 target. CDK CLI available via npx. Maven settings.xml with proxy must be present at ~/.m2/settings.xml.",
+  "contribution_requirements": "TDD workflow (test first, implement to pass). Conventional commits. ARCHITECTURE.md must stay in sync with implementation (Mermaid diagram + text). Least-privilege IAM. Every CDK construct must have a corresponding assertion test.",
+  "key_patterns": "Each test file focuses on one concern (DynamoDB, SNS, Lambda, StepFunctions, InputValidation, PipelineWiring). Tests use Template.fromStack() with Match.* for resource properties. Complex state machine verification uses Jackson to parse DefinitionString from Fn::Join intrinsics. CdkBaseStack is a monolithic stack. CdkBaseApp creates a single stack with no environment parameterization.",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/java/com/myorg/CdkBaseApp.java",
+    "src/test/java/com/myorg/CdkBaseTest.java",
+    "src/test/java/com/myorg/PipelineWiringTest.java",
+    "src/test/java/com/myorg/InputValidationTest.java",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "src/test/java/com/myorg/LambdaFunctionTest.java",
+    "src/test/java/com/myorg/SnsNotificationTest.java",
+    "src/test/java/com/myorg/DynamoDbMetadataTest.java",
+    "ARCHITECTURE.md",
+    "cdk.json",
+    "pom.xml",
+    ".github/workflows/ci.yml",
+    ".github/AGENT_GUIDELINES.md"
+  ],
+  "directory_structure": "Standard Maven layout: src/main/java/com/myorg/ (CdkBaseApp, CdkBaseStack), src/test/java/com/myorg/ (7 test files, 53 total tests), src/main/resources/lambda/audio-processor/ (Python Lambda code). Root has pom.xml, cdk.json, ARCHITECTURE.md."
+}
