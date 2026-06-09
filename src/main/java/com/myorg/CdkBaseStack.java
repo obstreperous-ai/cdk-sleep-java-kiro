@@ -49,6 +49,7 @@ import software.amazon.awscdk.services.cloudwatch.GraphWidget;
 import software.amazon.awscdk.services.cloudwatch.Metric;
 import software.amazon.awscdk.services.cloudwatch.MetricOptions;
 import software.amazon.awscdk.services.cloudwatch.TreatMissingData;
+import software.amazon.awscdk.services.cloudwatch.actions.SnsAction;
 
 import java.util.List;
 import java.util.Map;
@@ -292,6 +293,9 @@ public class CdkBaseStack extends Stack {
         // with Catch on lambdaInvokeTask, pollyTask, updateItemTask, and successPublishTask routing to failure path
 
         // Granular catch for Lambda-specific errors (evaluated first)
+        // These service-specific catches intentionally route to the same failure path as States.ALL
+        // for now, providing a foundation for future differentiated error handling (e.g., different
+        // remediation paths per service error type).
         lambdaInvokeTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("Lambda.ServiceException", "Lambda.AWSLambdaException"))
                 .resultPath("$.error")
@@ -304,6 +308,8 @@ public class CdkBaseStack extends Stack {
                 .build());
 
         // Granular catch for Polly-specific errors (evaluated first)
+        // Same pattern as Lambda: intentionally routes to the same failure path as States.ALL
+        // to establish structure for future differentiated error handling.
         pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("Polly.ServiceException", "Polly.ThrottlingException"))
                 .resultPath("$.error")
@@ -404,6 +410,10 @@ public class CdkBaseStack extends Stack {
                 .treatMissingData(TreatMissingData.NOT_BREACHING)
                 .build();
 
+        // Alarm actions - notify via the failed pipeline SNS topic
+        stateMachineFailureAlarm.addAlarmAction(new SnsAction(failedTopic));
+        lambdaErrorAlarm.addAlarmAction(new SnsAction(failedTopic));
+
         // CloudWatch Dashboard - Pipeline Observability
         Dashboard dashboard = Dashboard.Builder.create(this, "SleepAudioPipelineDashboard")
                 .build();
@@ -422,7 +432,8 @@ public class CdkBaseStack extends Stack {
                 .title("Lambda Function Metrics")
                 .left(List.of(
                         audioProcessorFunction.metricInvocations(),
-                        audioProcessorFunction.metricErrors()
+                        audioProcessorFunction.metricErrors(),
+                        audioProcessorFunction.metricDuration()
                 ))
                 .width(12)
                 .build());

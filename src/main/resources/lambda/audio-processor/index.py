@@ -49,10 +49,11 @@ def handler(event, context):
     """
     request_id = getattr(context, "aws_request_id", "unknown")
 
-    _log_structured("INFO", request_id, "RECEIVED", "Received event", event=event)
-
     bucket_name = event.get("bucket", {}).get("name")
     object_key = event.get("object", {}).get("key")
+
+    _log_structured("INFO", request_id, "RECEIVED", "Received event",
+                    bucket_name=bucket_name, object_key=object_key)
 
     if not bucket_name:
         _log_structured("ERROR", request_id, "VALIDATION_FAILED",
