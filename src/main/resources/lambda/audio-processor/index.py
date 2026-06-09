@@ -16,6 +16,22 @@ logger.setLevel(logging.INFO)
 TABLE_NAME = os.environ.get("TABLE_NAME", "")
 
 
+def _log_structured(level, request_id, status, message, **kwargs):
+    """Emit a structured JSON log entry."""
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": request_id,
+        "level": level,
+        "status": status,
+        "message": message,
+    }
+    entry.update(kwargs)
+    if level == "ERROR":
+        logger.error(json.dumps(entry))
+    else:
+        logger.info(json.dumps(entry))
+
+
 def handler(event, context):
     """Process audio metadata from Step Functions input.
 
@@ -31,23 +47,28 @@ def handler(event, context):
         ValueError: If required fields (bucket.name or object.key) are missing.
             The unhandled exception triggers the Step Functions Catch block.
     """
-    logger.info("Received event: %s", json.dumps(event))
+    request_id = getattr(context, "aws_request_id", "unknown")
+
+    _log_structured("INFO", request_id, "RECEIVED", "Received event", event=event)
 
     bucket_name = event.get("bucket", {}).get("name")
     object_key = event.get("object", {}).get("key")
 
     if not bucket_name:
-        logger.error("Processing failed: Missing required field: bucket.name")
+        _log_structured("ERROR", request_id, "VALIDATION_FAILED",
+                        "Missing required field: bucket.name")
         raise ValueError("Missing required field: bucket.name")
     if not object_key:
-        logger.error("Processing failed: Missing required field: object.key")
+        _log_structured("ERROR", request_id, "VALIDATION_FAILED",
+                        "Missing required field: object.key")
         raise ValueError("Missing required field: object.key")
 
     # Validate file extension (defense-in-depth - Choice state also validates)
     valid_extensions = (".wav", ".mp3", ".ogg")
     if not object_key.lower().endswith(valid_extensions):
         extension = object_key.rsplit(".", 1)[-1] if "." in object_key else ""
-        logger.error("Processing failed: Unsupported audio format: %s", extension)
+        _log_structured("ERROR", request_id, "VALIDATION_FAILED",
+                        "Unsupported audio format", extension=extension)
         raise ValueError(f"Unsupported audio format: {extension}")
 
     audio_id = object_key
@@ -60,5 +81,6 @@ def handler(event, context):
         "objectKey": object_key,
     }
 
-    logger.info("Processing complete: %s", json.dumps(response))
+    _log_structured("INFO", request_id, "COMPLETED", "Processing complete",
+                    audio_id=audio_id, bucket_name=bucket_name, object_key=object_key)
     return response

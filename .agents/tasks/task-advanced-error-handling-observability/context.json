@@ -1,0 +1,27 @@
+{
+  "project_type": "AWS CDK Java project (Maven-based, Java 17) - event-driven sleep audio processing pipeline",
+  "language": "Java 17 (CDK infrastructure), Python 3.12 (Lambda function)",
+  "build_system": "Maven 3.9.10 - requires proxy configuration at /root/.m2/settings.xml (already configured). Proxy host: BigWeaverExecEnvMgnt-ProxyLB-4d485583b9a55f82.elb.us-east-1.amazonaws.com:3128",
+  "test_framework": "JUnit 5.7.1 with CDK assertions (Template.fromStack, Match.objectLike). Tests parse state machine DefinitionString via Jackson ObjectMapper to verify state chain ordering.",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "1. Run mvn compile - should succeed with deprecation warning about pointInTimeRecovery. 2. Run mvn test - all tests should pass. 3. Verify new tests exercise the actual new code paths.",
+  "snapshot_or_generated_files": "No snapshot files checked in. SnapshotTest.java uses count assertions not file-based snapshots.",
+  "setup_instructions": "Maven proxy already configured at /root/.m2/settings.xml. Java 17 via mise. Node.js available for npx cdk synth. Maven surefire plugin clears NODE_OPTIONS env var for test execution.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - Maven Central accessible via proxy. repo.maven.apache.org reachable through HTTP proxy. Docker not needed for this task.",
+  "contribution_requirements": "Strict TDD: write failing tests first, then implement minimal code to pass. Use conventional commits. Update ARCHITECTURE.md with Mermaid diagrams after changes. Maintain least-privilege IAM.",
+  "key_patterns": "1. All tests use @BeforeEach setUp() creating App->CdkBaseStack->Template pattern. 2. State machine definition is parsed from Fn::Join parts replacing non-text intrinsics with PLACEHOLDER. 3. Retry policies use addRetry() with RetryProps.builder(). 4. Catch blocks use addCatch() with CatchProps.builder(). 5. IAM assertions use Match.arrayWith and Match.objectLike for policy statement verification. 6. The stack is one monolithic file CdkBaseStack.java with all constructs inline. 7. Lambda code is at src/main/resources/lambda/audio-processor/index.py",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/resources/lambda/audio-processor/index.py",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "src/test/java/com/myorg/EndToEndFlowTest.java",
+    "src/test/java/com/myorg/LambdaFunctionTest.java",
+    "src/test/java/com/myorg/SnsNotificationTest.java",
+    "src/test/java/com/myorg/SnapshotTest.java",
+    "src/test/java/com/myorg/PipelineWiringTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml"
+  ],
+  "directory_structure": "Root: pom.xml, cdk.json, ARCHITECTURE.md. src/main/java/com/myorg/ has CdkBaseStack.java, CdkBaseApp.java, PipelineStack.java. src/main/resources/lambda/audio-processor/index.py has the Lambda handler. src/test/java/com/myorg/ has 11 test files covering various aspects."
+}

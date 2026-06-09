@@ -39,7 +39,16 @@ import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke;
 
+import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.Tags;
+import software.amazon.awscdk.services.lambda.Tracing;
+import software.amazon.awscdk.services.cloudwatch.Alarm;
+import software.amazon.awscdk.services.cloudwatch.ComparisonOperator;
+import software.amazon.awscdk.services.cloudwatch.Dashboard;
+import software.amazon.awscdk.services.cloudwatch.GraphWidget;
+import software.amazon.awscdk.services.cloudwatch.Metric;
+import software.amazon.awscdk.services.cloudwatch.MetricOptions;
+import software.amazon.awscdk.services.cloudwatch.TreatMissingData;
 
 import java.util.List;
 import java.util.Map;
@@ -100,6 +109,7 @@ public class CdkBaseStack extends Stack {
                         .runtime(Runtime.PYTHON_3_12)
                         .handler("index.handler")
                         .code(Code.fromAsset("src/main/resources/lambda/audio-processor"))
+                        .tracing(Tracing.ACTIVE)
                         .environment(Map.of(
                                 "TABLE_NAME", metadataTable.getTableName()
                         ))
@@ -140,7 +150,7 @@ public class CdkBaseStack extends Stack {
                 .build();
 
         lambdaInvokeTask.addRetry(RetryProps.builder()
-                .errors(List.of("Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"))
+                .errors(List.of("Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.TooManyRequestsException", "States.Timeout"))
                 .maxAttempts(3)
                 .backoffRate(2.0)
                 .build());
@@ -157,6 +167,13 @@ public class CdkBaseStack extends Stack {
                 .iamResources(List.of("*"))
                 .resultPath("$.pollyResult")
                 .build();
+
+        pollyTask.addRetry(RetryProps.builder()
+                .errors(List.of("Polly.ServiceException", "Polly.ThrottlingException", "States.Timeout"))
+                .maxAttempts(3)
+                .interval(Duration.seconds(2))
+                .backoffRate(2.0)
+                .build());
 
         // DynamoDB UpdateItem task - updates status to COMPLETED after Polly processing
         CallAwsService updateItemTask = CallAwsService.Builder.create(this, "UpdateMetadataStatus")
@@ -273,11 +290,26 @@ public class CdkBaseStack extends Stack {
 
         // Chain: PutItem -> Lambda -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
         // with Catch on lambdaInvokeTask, pollyTask, updateItemTask, and successPublishTask routing to failure path
+
+        // Granular catch for Lambda-specific errors (evaluated first)
+        lambdaInvokeTask.addCatch(failureUpdateTask, CatchProps.builder()
+                .errors(List.of("Lambda.ServiceException", "Lambda.AWSLambdaException"))
+                .resultPath("$.error")
+                .build());
+
+        // Catch-all for Lambda task (evaluated second)
         lambdaInvokeTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("States.ALL"))
                 .resultPath("$.error")
                 .build());
 
+        // Granular catch for Polly-specific errors (evaluated first)
+        pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
+                .errors(List.of("Polly.ServiceException", "Polly.ThrottlingException"))
+                .resultPath("$.error")
+                .build());
+
+        // Catch-all for Polly task (evaluated second)
         pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("States.ALL"))
                 .resultPath("$.error")
@@ -336,6 +368,7 @@ public class CdkBaseStack extends Stack {
         // Step Functions State Machine with chained tasks and logging
         StateMachine stateMachine = StateMachine.Builder.create(this, "SleepAudioPipelineStateMachine")
                 .definitionBody(DefinitionBody.fromChainable(chain))
+                .tracingEnabled(true)
                 .logs(LogOptions.builder()
                         .destination(stateMachineLogGroup)
                         .level(LogLevel.ALL)
@@ -348,6 +381,51 @@ public class CdkBaseStack extends Stack {
         // Grant SNS publish permissions to the state machine
         completedTopic.grantPublish(stateMachine);
         failedTopic.grantPublish(stateMachine);
+
+        // CloudWatch Alarm - State Machine Execution Failures
+        Alarm stateMachineFailureAlarm = Alarm.Builder.create(this, "StateMachineExecutionFailedAlarm")
+                .metric(stateMachine.metricFailed(MetricOptions.builder()
+                        .period(Duration.seconds(300))
+                        .build()))
+                .threshold(1)
+                .evaluationPeriods(1)
+                .comparisonOperator(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD)
+                .treatMissingData(TreatMissingData.NOT_BREACHING)
+                .build();
+
+        // CloudWatch Alarm - Lambda Function Errors
+        Alarm lambdaErrorAlarm = Alarm.Builder.create(this, "LambdaErrorAlarm")
+                .metric(audioProcessorFunction.metricErrors(MetricOptions.builder()
+                        .period(Duration.seconds(300))
+                        .build()))
+                .threshold(1)
+                .evaluationPeriods(1)
+                .comparisonOperator(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD)
+                .treatMissingData(TreatMissingData.NOT_BREACHING)
+                .build();
+
+        // CloudWatch Dashboard - Pipeline Observability
+        Dashboard dashboard = Dashboard.Builder.create(this, "SleepAudioPipelineDashboard")
+                .build();
+
+        dashboard.addWidgets(GraphWidget.Builder.create()
+                .title("State Machine Executions")
+                .left(List.of(
+                        stateMachine.metricStarted(),
+                        stateMachine.metricSucceeded(),
+                        stateMachine.metricFailed()
+                ))
+                .width(12)
+                .build());
+
+        dashboard.addWidgets(GraphWidget.Builder.create()
+                .title("Lambda Function Metrics")
+                .left(List.of(
+                        audioProcessorFunction.metricInvocations(),
+                        audioProcessorFunction.metricErrors()
+                ))
+                .width(12)
+                .build());
 
         // EventBridge Rule - triggers on S3 Object Created events from the input bucket
         Rule rule = Rule.Builder.create(this, "SleepAudioInputRule")
