@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "TDD: Write failing tests for advanced error handling, retry policies, X-Ray tracing, and CloudWatch alarms, then implement the infrastructure code to make them pass. This is a single TDD feature that covers: (1) granular Catch blocks for specific error types, (2) retry policies with exponential backoff on Polly task, (3) X-Ray tracing on Lambda and State Machine, (4) CloudWatch Alarms for state machine failures and Lambda errors, (5) optional CloudWatch Dashboard, and (6) structured JSON logging in the Lambda handler.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create a new test file src/test/java/com/myorg/AdvancedErrorHandlingTest.java following the existing test patterns (setUp with App/CdkBaseStack/Template, Jackson parsing of DefinitionString). Write tests that WILL FAIL initially: (a) Test that Polly task has a retry policy configured with specific errors (Polly.ServiceException, Polly.ThrottlingException), maxAttempts, intervalSeconds, and backoffRate. (b) Test that the Lambda task has specific error types in its retry config (Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.TooManyRequestsException). (c) Test that the state machine definition contains multiple Catch blocks with specific error patterns (not just States.ALL) for the Lambda and Polly tasks - e.g., separate catch for Lambda.ServiceException routing to failure path.",
     "Create a new test file src/test/java/com/myorg/ObservabilityTest.java with tests that WILL FAIL initially: (a) Test that the Lambda function has TracingConfig with Mode=Active (X-Ray tracing enabled). (b) Test that the state machine has TracingConfiguration with Enabled=true. (c) Test that a CloudWatch Alarm resource exists for state machine execution failures (metric: ExecutionsFailed, threshold 1, period 300). (d) Test that a CloudWatch Alarm resource exists for Lambda errors (metric: Errors, threshold 1). (e) Test that a CloudWatch Dashboard resource exists.",
@@ -30,5 +30,5 @@
     "Verify new test file ObservabilityTest.java exists with meaningful assertions on X-Ray, alarms, and dashboard"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 89 tests pass (74 existing + 15 new). SnapshotTest still passes without changes because it uses >= for Lambda count and the exact counts for KMS/SNS/S3/DynamoDB/EventBridge/StateMachine were unaffected by CloudWatch resources. The CDK Duration import was needed for retry interval and alarm period configuration. The metricFailed() method on StateMachine returns the ExecutionsFailed metric."
 }
