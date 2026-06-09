@@ -194,6 +194,8 @@ This document describes the target architecture. Components are implemented incr
 | **SNS Topic (Completed)** | `SleepAudioPipelineCompleted` | KMS-encrypted, receives success notifications after pipeline completion |
 | **SNS Topic (Failed)** | `SleepAudioPipelineFailed` | KMS-encrypted, receives failure notifications when pipeline errors occur |
 | **KMS Key (SNS)** | `SnsEncryptionKey` | Key rotation enabled, encrypts both SNS topics |
+| **PipelineStack** | `SleepAudioPipeline` | CDK Pipelines CodePipeline skeleton with GitHub connection source and ShellStep synth (mvn compile, npx cdk synth). Placeholder connection ARN for future CI/CD integration. |
+| **Multi-Environment Support** | N/A (context-driven) | Reads `environment` CDK context (default: "dev"), applies `Environment` tag to all stack resources. Configured in cdk.json and overridable via `-c environment=prod`. |
 
 ### Orchestration Layer
 
@@ -264,6 +266,16 @@ This two-level approach ensures that:
 1. Invalid files are rejected early at the state machine level (low cost, no Lambda invocation)
 2. Even if the Choice state logic is bypassed or misconfigured, the Lambda provides a safety net
 
+### Deployment Pipeline
+
+The `PipelineStack` provides a skeleton CDK Pipelines construct for future CI/CD integration. It uses the `CodePipeline` L2 construct from `software.amazon.awscdk.pipelines` with:
+
+- **Source**: `CodePipelineSource.connection()` configured with a placeholder GitHub connection ARN and repository reference (`owner/repo`). This will be replaced with a real CodeStar connection once the deployment account is provisioned.
+- **Synth Step**: A `ShellStep` that runs `mvn compile` followed by `npx cdk synth` to produce the CloudFormation template from source.
+- **Multi-Environment Strategy**: The pipeline supports deploying to multiple environments by passing `-c environment=<env>` during synthesis. The `cdk.json` defaults to `dev`, and the CI workflow validates both `dev` and `prod` synthesis.
+
+The pipeline is currently a standalone stack (`PipelineStack`) that synthesizes but is not deployed. To activate it, replace the placeholder connection ARN with a valid CodeStar Connections ARN and add deployment stages for each target environment.
+
 ### Planned
 
 | Component | Notes |
@@ -311,6 +323,10 @@ flowchart TD
         ErrorPath["PublishFailureNotification\n(Failed Topic)"]
     end
 
+    subgraph Deployment["Deployment"]
+        CDKPipeline["CDK Pipeline\n(CodePipeline)"]
+    end
+
     subgraph Observability["Observability"]
         CWLogs["CloudWatch Logs"]
         CWAlarms["CloudWatch Alarms"]
@@ -321,6 +337,11 @@ flowchart TD
         IAMRoles["IAM Roles\nLeast Privilege"]
         KMSKeys["KMS Keys\nEncryption at Rest"]
     end
+
+    %% Deployment flow
+    CDKPipeline -->|"Deploys"| SFN
+    CDKPipeline -->|"Deploys"| S3Input
+    CDKPipeline -->|"Deploys"| S3Output
 
     %% Main data flow - implemented pipeline
     S3Input -->|"PutObject Event"| EBRule
@@ -369,7 +390,7 @@ flowchart TD
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,PollyTTS,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath implemented
+    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,PollyTTS,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath,CDKPipeline implemented
     class Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
 
     %% Legend:
