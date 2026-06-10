@@ -49,8 +49,6 @@ public class PipelineWiringTest {
             "Pipeline should contain ValidateFileExtension state");
         assertTrue(templateJson.contains("ProcessAudioMetadata"),
             "Pipeline should contain ProcessAudioMetadata state");
-        assertTrue(templateJson.contains("SynthesizeSpeech"),
-            "Pipeline should contain SynthesizeSpeech state");
         assertTrue(templateJson.contains("UpdateMetadataStatus"),
             "Pipeline should contain UpdateMetadataStatus state");
         assertTrue(templateJson.contains("PublishSuccessNotification"),
@@ -199,20 +197,5 @@ public class PipelineWiringTest {
             }
         }
         throw new RuntimeException("StateMachine resource not found in template");
-    }
-
-    @Test
-    public void testPollyPermissionsConfiguredWithIamResources() {
-        // Polly synthesizeSpeech permission should exist in the state machine policy
-        template.hasResourceProperties("AWS::IAM::Policy", Match.objectLike(Map.of(
-            "PolicyDocument", Match.objectLike(Map.of(
-                "Statement", Match.arrayWith(List.of(
-                    Match.objectLike(Map.of(
-                        "Action", "polly:synthesizeSpeech",
-                        "Effect", "Allow"
-                    ))
-                ))
-            ))
-        )));
     }
 }

@@ -1,0 +1,27 @@
+{
+  "project_type": "AWS CDK Java project with Python Lambda for sleep audio processing pipeline",
+  "language": "Java (CDK infrastructure), Python (Lambda function)",
+  "build_system": "Maven 3.9.10 with Java 17 (via mise)",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack, Match, JSON parsing of state machine definitions)",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "1. Run 'mvn test' - all tests must pass. 2. Run 'npx cdk synth' - must produce valid CloudFormation template.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Java 17 and Maven 3.9.10 are available via mise. Run 'mvn compile' to build.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - can install Maven packages from central. No Docker daemon needed. The Polly synchronous API returns binary AudioStream that Step Functions cannot serialize - must use StartSpeechSynthesisTask (async API that writes directly to S3) or a Lambda wrapper.",
+  "contribution_requirements": "1. TDD-first: write failing tests before implementation. 2. Conventional commit messages (feat:, fix:, etc.). 3. Keep ARCHITECTURE.md Mermaid diagram in sync with code. 4. All infrastructure constructs must have assertion tests.",
+  "key_patterns": "CDK assertion tests use Template.fromStack() and Match helpers. State machine definition is parsed from Fn::Join intrinsic using ObjectMapper. Tests verify IAM policies, state chain order, catch blocks, retry policies. Lambda uses Python 3.12 with structured JSON logging. Step Functions uses CallAwsService for DynamoDB/Polly and LambdaInvoke for Lambda. Error path: UpdateMetadataStatusFailed -> PublishFailureNotification.",
+  "relevant_files": [
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/resources/lambda/audio-processor/index.py",
+    "src/test/java/com/myorg/EndToEndFlowTest.java",
+    "src/test/java/com/myorg/StepFunctionsTest.java",
+    "src/test/java/com/myorg/LambdaFunctionTest.java",
+    "src/test/java/com/myorg/AdvancedErrorHandlingTest.java",
+    "src/test/java/com/myorg/PipelineWiringTest.java",
+    "src/test/java/com/myorg/SnapshotTest.java",
+    "ARCHITECTURE.md",
+    "pom.xml"
+  ],
+  "directory_structure": "Root: pom.xml, cdk.json, ARCHITECTURE.md, CONTRIBUTING.md. src/main/java/com/myorg/ has CdkBaseApp.java, CdkBaseStack.java, PipelineStack.java. src/main/resources/lambda/audio-processor/index.py is the Lambda. src/test/java/com/myorg/ has 13 test files (89 passing tests)."
+}

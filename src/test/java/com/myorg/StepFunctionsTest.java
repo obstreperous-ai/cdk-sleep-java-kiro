@@ -38,14 +38,11 @@ public class StepFunctionsTest {
     }
 
     @Test
-    public void testStateMachineDefinitionContainsPollyTask() {
-        // Verify the state machine definition references Polly synthesizeSpeech
-        // The DefinitionString is a Fn::Join intrinsic, so we check the raw template JSON
+    public void testStateMachineDefinitionContainsLambdaProcessingTask() {
+        // Verify the state machine definition references the Lambda processing task
         String templateJson = template.toJSON().toString();
-        assertTrue(templateJson.contains("polly"),
-            "State machine definition should reference polly service");
-        assertTrue(templateJson.contains("synthesizeSpeech"),
-            "State machine definition should reference synthesizeSpeech action");
+        assertTrue(templateJson.contains("ProcessAudioMetadata"),
+            "State machine definition should reference ProcessAudioMetadata Lambda task");
     }
 
     @Test
@@ -62,12 +59,13 @@ public class StepFunctionsTest {
     }
 
     @Test
-    public void testStateMachineRoleHasPollyPermissions() {
+    public void testLambdaRoleHasPollyPermissions() {
+        // Polly permissions should be on the Lambda role (not the state machine role)
         template.hasResourceProperties("AWS::IAM::Policy", Match.objectLike(Map.of(
             "PolicyDocument", Match.objectLike(Map.of(
                 "Statement", Match.arrayWith(List.of(
                     Match.objectLike(Map.of(
-                        "Action", "polly:synthesizeSpeech",
+                        "Action", "polly:SynthesizeSpeech",
                         "Effect", "Allow"
                     ))
                 ))
