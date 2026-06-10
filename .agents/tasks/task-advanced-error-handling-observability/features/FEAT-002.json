@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to document the advanced error handling, retry policies, and observability enhancements. Refine the Mermaid diagram to show X-Ray tracing, CloudWatch Alarms, and Dashboard as implemented (green). Add sections on error handling strategy and observability stack.",
+  "status": "completed",
+  "steps": [
+    "Update the Implementation Status section in ARCHITECTURE.md to add the new implemented components: X-Ray tracing (Lambda and State Machine), CloudWatch Alarms (ExecutionsFailed, Lambda Errors), CloudWatch Dashboard, granular Catch blocks, Polly retry policy.",
+    "Update the Orchestration Layer section to document the enhanced error handling: granular Catch blocks for specific error types (Lambda.ServiceException, Polly.ServiceException) in addition to the existing States.ALL catch-all.",
+    "Update the Observability section to reflect that X-Ray tracing is now implemented (not just planned), and that CloudWatch Alarms and a Dashboard skeleton are deployed.",
+    "Update the Mermaid diagram: change CWLogs, CWAlarms, XRay from planned (gray/dashed) to implemented (green/solid). Add the CloudWatch Dashboard node as implemented.",
+    "Remove CloudWatch Alarms from the Planned table since they are now implemented.",
+    "Run mvn test to confirm documentation changes did not break anything (they should not since ARCHITECTURE.md is not code)."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md Observability section documents X-Ray tracing as enabled on Lambda and State Machine",
+    "ARCHITECTURE.md documents CloudWatch Alarms for state machine failures and Lambda errors",
+    "ARCHITECTURE.md documents the enhanced retry policies (Polly task retry with specific errors)",
+    "Mermaid diagram shows CWLogs, CWAlarms, XRay, and Dashboard as implemented (green styling)",
+    "Planned table no longer lists CloudWatch Alarms",
+    "mvn test still passes after documentation update"
+  ],
+  "verification": [
+    "Run mvn test and confirm all tests pass",
+    "Read ARCHITECTURE.md and verify the Observability section mentions X-Ray tracing enabled, CloudWatch Alarms created, Dashboard deployed"
+  ],
+  "blocked_reason": null,
+  "findings": "All 89 tests pass after documentation update. No code changes were needed - only ARCHITECTURE.md was modified."
+}

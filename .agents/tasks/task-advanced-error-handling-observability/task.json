@@ -1,0 +1,7 @@
+{
+  "task_id": "task-advanced-error-handling-observability",
+  "task_description": "Enhance the sleep audio pipeline with advanced error handling (granular Catch blocks for specific error types), retry policies (Polly task with exponential backoff), and observability improvements (X-Ray tracing on Lambda/StateMachine, CloudWatch Alarms for failures, CloudWatch Dashboard). Follow strict TDD: write failing tests first, then implement.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

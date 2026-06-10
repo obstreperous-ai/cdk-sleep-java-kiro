@@ -101,13 +101,28 @@ The following describes how data moves through the system from initial upload to
 
 ### Alarms
 
-- Error rate threshold alarms on each Lambda function (e.g., >5% error rate over 5 minutes).
-- Step Functions execution failure alarm (any failed execution in prod triggers alert).
+The following CloudWatch Alarms are deployed:
+
+- **StateMachineExecutionFailedAlarm**: Monitors the `ExecutionsFailed` metric on the state machine. Threshold: >= 1 failure within a 300-second (5-minute) evaluation period. Comparison: GreaterThanOrEqualToThreshold.
+- **LambdaErrorAlarm**: Monitors the `Errors` metric on the SleepAudioProcessor Lambda function. Threshold: >= 1 error within a 300-second (5-minute) evaluation period. Comparison: GreaterThanOrEqualToThreshold.
+
+Future alarms planned:
 - Polly/Bedrock throttling alarms to detect service limit pressure.
+- Error rate percentage alarms (>5% over 5 minutes) for production environments.
 
 ### Tracing
 
-- AWS X-Ray tracing enabled for all Lambda functions and Step Functions to provide end-to-end request visibility across the entire pipeline.
+AWS X-Ray tracing is enabled for end-to-end request visibility across the entire pipeline:
+
+- **Lambda Function**: X-Ray active tracing is enabled on the SleepAudioProcessor Lambda function (`TracingConfig Mode=Active`), which instruments all downstream AWS SDK calls.
+- **State Machine**: X-Ray tracing is enabled on the Step Functions state machine (`TracingConfiguration Enabled=true`), providing visibility into state transitions, task invocations, and error paths.
+
+### Dashboard
+
+A CloudWatch Dashboard (`SleepAudioPipelineDashboard`) is deployed with the following widgets:
+
+- **State Machine Executions**: A GraphWidget displaying `ExecutionsStarted`, `ExecutionsSucceeded`, and `ExecutionsFailed` metrics for the state machine.
+- **Lambda Function Metrics**: A GraphWidget displaying `Invocations`, `Errors`, and `Duration` metrics for the SleepAudioProcessor Lambda function.
 
 ---
 
@@ -196,6 +211,13 @@ This document describes the target architecture. Components are implemented incr
 | **KMS Key (SNS)** | `SnsEncryptionKey` | Key rotation enabled, encrypts both SNS topics |
 | **PipelineStack** | `SleepAudioPipeline` | CDK Pipelines CodePipeline skeleton with GitHub connection source and ShellStep synth (mvn compile, npx cdk synth). Placeholder connection ARN for future CI/CD integration. |
 | **Multi-Environment Support** | N/A (context-driven) | Reads `environment` CDK context (default: "dev"), applies `Environment` tag to all stack resources. Configured in cdk.json and overridable via `-c environment=prod`. |
+| **X-Ray Tracing (Lambda)** | `SleepAudioProcessor` | Active tracing enabled (`TracingConfig Mode=Active`) for downstream AWS SDK call instrumentation |
+| **X-Ray Tracing (State Machine)** | `SleepAudioPipelineStateMachine` | Tracing enabled (`TracingConfiguration Enabled=true`) for state transition visibility |
+| **CloudWatch Alarm (State Machine)** | `StateMachineExecutionFailedAlarm` | Metric: ExecutionsFailed, Threshold: >= 1, Period: 300s, Comparison: GreaterThanOrEqualToThreshold |
+| **CloudWatch Alarm (Lambda)** | `LambdaErrorAlarm` | Metric: Errors, Threshold: >= 1, Period: 300s, Comparison: GreaterThanOrEqualToThreshold |
+| **CloudWatch Dashboard** | `SleepAudioPipelineDashboard` | Two GraphWidgets: State Machine Executions (Started/Succeeded/Failed) and Lambda Function Metrics (Invocations/Errors/Duration) |
+| **Polly Retry Policy** | `SynthesizeSpeech` | Retries on [Polly.ServiceException, Polly.ThrottlingException, States.Timeout], maxAttempts: 3, interval: 2s, backoffRate: 2.0 |
+| **Granular Catch Blocks** | `ProcessAudioMetadata`, `SynthesizeSpeech` | Service-specific error catching before States.ALL fallback (see Orchestration Layer) |
 
 ### Orchestration Layer
 
@@ -213,13 +235,14 @@ PutItem (PROCESSING) -> ValidateFileExtension (Choice) -> [invalid extension] ->
 
 **Error Path (Catch on Lambda, Polly, UpdateItem(COMPLETED), and SNS success publish tasks):**
 ```
-[Error] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
+[Service-Specific Error] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
+[States.ALL fallback] -> UpdateItem (FAILED) -> SNS Publish (Failure) -> End
 ```
 
 1. **PutMetadataRecord** (DynamoDB PutItem): Writes an initial metadata record with audioId (from S3 object key), status=PROCESSING, inputBucket, inputKey, and createdAt timestamp from the Step Functions context object.
 2. **ValidateFileExtension** (Choice State): Checks if `$.object.key` matches a valid audio file extension (.wav, .mp3, .ogg) using StringMatches conditions. Valid files proceed to ProcessAudioMetadata. Invalid files route to the failure path (UpdateMetadataStatusFailed -> PublishFailureNotification).
-3. **ProcessAudioMetadata** (LambdaInvoke): Invokes the SleepAudioProcessor Lambda function to validate the uploaded audio metadata (bucket name, object key). Returns enriched metadata with status=VALIDATED, audioId, and processingTimestamp. Has retry for Lambda.ServiceException and States.Timeout, and a Catch block for States.ALL errors that routes to the failure path.
-4. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a Catch block for States.ALL errors that routes to the failure path.
+3. **ProcessAudioMetadata** (LambdaInvoke): Invokes the SleepAudioProcessor Lambda function to validate the uploaded audio metadata (bucket name, object key). Returns enriched metadata with status=VALIDATED, audioId, and processingTimestamp. Has retry for Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.TooManyRequestsException, and States.Timeout. Has a granular Catch block for [Lambda.ServiceException, Lambda.AWSLambdaException] that routes to the failure path, followed by a Catch block for States.ALL as a fallback.
+4. **SynthesizeSpeech** (Polly): Invokes Amazon Polly with placeholder parameters (text, VoiceId=Joanna, OutputFormat=mp3). Has a retry policy for [Polly.ServiceException, Polly.ThrottlingException, States.Timeout] with maxAttempts: 3, interval: 2s, backoffRate: 2.0. Has a granular Catch block for [Polly.ServiceException, Polly.ThrottlingException] that routes to the failure path, followed by a Catch block for States.ALL as a fallback.
 5. **UpdateMetadataStatus** (DynamoDB UpdateItem): Updates the metadata record to status=COMPLETED with an updatedAt timestamp. Has a Catch block for States.ALL errors that routes to the failure path.
 6. **PublishSuccessNotification** (SNS Publish): Publishes a curated success notification (audioId, status) to the SleepAudioPipelineCompleted topic. Has retry for transient errors and a Catch block for States.ALL errors that routes to the failure path.
 7. **UpdateMetadataStatusFailed** (DynamoDB UpdateItem - error path): Updates the metadata record to status=FAILED with updatedAt and the error cause from the caught error.
@@ -234,8 +257,10 @@ The pipeline uses two KMS-encrypted SNS topics for notifications:
 - **SleepAudioPipelineCompleted**: Receives notifications when the pipeline successfully processes an audio file (after the COMPLETED status update).
 - **SleepAudioPipelineFailed**: Receives notifications when the pipeline encounters an unrecoverable error (after the FAILED status update).
 
-Error handling uses the Step Functions Catch mechanism:
-- `Catch` blocks on the Lambda task, Polly task, UpdateItem(COMPLETED) task, and SNS success publish task capture all errors (`States.ALL`) and route execution to the failure path.
+Error handling uses the Step Functions Catch mechanism with granular, service-specific error catching:
+- The Lambda task (`ProcessAudioMetadata`) has a granular Catch block for `[Lambda.ServiceException, Lambda.AWSLambdaException]` that routes to the failure path, followed by a `States.ALL` catch-all as a fallback.
+- The Polly task (`SynthesizeSpeech`) has a granular Catch block for `[Polly.ServiceException, Polly.ThrottlingException]` that routes to the failure path, followed by a `States.ALL` catch-all as a fallback.
+- `Catch` blocks on the UpdateItem(COMPLETED) task and SNS success publish task capture all errors (`States.ALL`) and route execution to the failure path.
 - The error details are stored in `$.error` via the `resultPath` configuration.
 - The failure path updates the DynamoDB record with status=FAILED and the detailed error cause (`$.error.Cause`), then publishes a curated failure notification (audioId, status, error type, cause) to the failure SNS topic.
 - Both SNS publish tasks have retry configuration for transient errors.
@@ -283,7 +308,6 @@ The pipeline is currently a standalone stack (`PipelineStack`) that synthesizes 
 | Lambda: Polly TTS | Invokes Amazon Polly Neural TTS for voice generation |
 | Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged) |
 | Lambda: Metadata Extraction | Extracts final audio metadata, writes to DynamoDB |
-| CloudWatch Alarms | Error rate and throttling alarms |
 | KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3) for buckets; will migrate to CMK per environment |
 
 ---
@@ -331,6 +355,7 @@ flowchart TD
         CWLogs["CloudWatch Logs"]
         CWAlarms["CloudWatch Alarms"]
         XRay["X-Ray Tracing"]
+        CWDashboard["CloudWatch Dashboard"]
     end
 
     subgraph Security["Security"]
@@ -356,8 +381,10 @@ flowchart TD
     UpdateCompleted -->|"status=COMPLETED"| DDB
     UpdateCompleted --> SuccessPath
 
-    %% Error/Catch flow
+    %% Error/Catch flow (granular service-specific + States.ALL fallback)
+    ProcessAudio -->|"Catch: Lambda.ServiceException,\nLambda.AWSLambdaException"| UpdateFailed
     ProcessAudio -->|"Catch: States.ALL"| UpdateFailed
+    PollyTTS -->|"Catch: Polly.ServiceException,\nPolly.ThrottlingException"| UpdateFailed
     PollyTTS -->|"Catch: States.ALL"| UpdateFailed
     UpdateCompleted -->|"Catch: States.ALL"| UpdateFailed
     SuccessPath -->|"Catch: States.ALL"| UpdateFailed
@@ -378,6 +405,10 @@ flowchart TD
     SFN -.->|"Execution History"| CWLogs
     CWLogs -.->|"Triggers"| CWAlarms
     SFN -.->|"Traces"| XRay
+    ProcessAudio -.->|"Traces"| XRay
+    CWAlarms -.->|"Displayed On"| CWDashboard
+    SFN -.->|"Metrics"| CWDashboard
+    ProcessAudio -.->|"Metrics"| CWDashboard
 
     %% Security connections
     S3Input -.->|"Encrypted By"| KMSKeys
@@ -390,8 +421,8 @@ flowchart TD
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
     classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,PollyTTS,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath,CDKPipeline implemented
-    class Choice,BedrockEnhance,MetadataExtract,CWLogs,CWAlarms,XRay,IAMRoles,KMSKeys planned
+    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,PollyTTS,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath,CDKPipeline,CWLogs,CWAlarms,XRay,CWDashboard implemented
+    class Choice,BedrockEnhance,MetadataExtract,IAMRoles,KMSKeys planned
 
     %% Legend:
     %% Green (solid border) = Implemented

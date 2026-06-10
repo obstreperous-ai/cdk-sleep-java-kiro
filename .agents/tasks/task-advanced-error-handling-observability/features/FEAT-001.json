@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "TDD: Write failing tests for advanced error handling, retry policies, X-Ray tracing, and CloudWatch alarms, then implement the infrastructure code to make them pass. This is a single TDD feature that covers: (1) granular Catch blocks for specific error types, (2) retry policies with exponential backoff on Polly task, (3) X-Ray tracing on Lambda and State Machine, (4) CloudWatch Alarms for state machine failures and Lambda errors, (5) optional CloudWatch Dashboard, and (6) structured JSON logging in the Lambda handler.",
+  "status": "completed",
+  "steps": [
+    "Create a new test file src/test/java/com/myorg/AdvancedErrorHandlingTest.java following the existing test patterns (setUp with App/CdkBaseStack/Template, Jackson parsing of DefinitionString). Write tests that WILL FAIL initially: (a) Test that Polly task has a retry policy configured with specific errors (Polly.ServiceException, Polly.ThrottlingException), maxAttempts, intervalSeconds, and backoffRate. (b) Test that the Lambda task has specific error types in its retry config (Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.TooManyRequestsException). (c) Test that the state machine definition contains multiple Catch blocks with specific error patterns (not just States.ALL) for the Lambda and Polly tasks - e.g., separate catch for Lambda.ServiceException routing to failure path.",
+    "Create a new test file src/test/java/com/myorg/ObservabilityTest.java with tests that WILL FAIL initially: (a) Test that the Lambda function has TracingConfig with Mode=Active (X-Ray tracing enabled). (b) Test that the state machine has TracingConfiguration with Enabled=true. (c) Test that a CloudWatch Alarm resource exists for state machine execution failures (metric: ExecutionsFailed, threshold 1, period 300). (d) Test that a CloudWatch Alarm resource exists for Lambda errors (metric: Errors, threshold 1). (e) Test that a CloudWatch Dashboard resource exists.",
+    "Run mvn test to confirm the new tests fail (they should fail because the implementation does not yet have X-Ray tracing, CloudWatch Alarms, Dashboard, or granular error catches on the Polly task).",
+    "Implement in CdkBaseStack.java: (a) Add a specific retry policy on the Polly task with errors [Polly.ServiceException, Polly.ThrottlingException, States.Timeout], maxAttempts 3, interval Duration.seconds(2), backoffRate 2.0. (b) Update the Lambda task retry to include Lambda.AWSLambdaException in its error list. (c) Add granular Catch blocks: before the existing States.ALL catch on lambdaInvokeTask, add a catch for [Lambda.ServiceException, Lambda.AWSLambdaException] with resultPath $.error routing to failureUpdateTask. Before the existing States.ALL catch on pollyTask, add a catch for [Polly.ServiceException, Polly.ThrottlingException] with resultPath $.error routing to failureUpdateTask. (d) Enable X-Ray tracing on Lambda function via .tracing(Tracing.ACTIVE). (e) Enable X-Ray tracing on State Machine via .tracingEnabled(true). (f) Add CloudWatch Alarms: one for state machine ExecutionsFailed metric (threshold >= 1, evaluation period 1, period 300s), one for Lambda function Errors metric (threshold >= 1, evaluation period 1, period 300s). (g) Add a basic CloudWatch Dashboard with widgets showing state machine execution metrics and Lambda invocation/error metrics.",
+    "Update the Lambda handler src/main/resources/lambda/audio-processor/index.py to use structured JSON logging: replace plain logger.info/error calls with structured JSON output including requestId from context, status field, and relevant metadata fields. Keep the handler logic identical.",
+    "Run mvn test to confirm all new and existing tests pass.",
+    "Update the SnapshotTest.java to account for new resource counts if needed (CloudWatch Alarms, Dashboard)."
+  ],
+  "acceptance_criteria": [
+    "mvn test passes with all new tests in AdvancedErrorHandlingTest.java and ObservabilityTest.java",
+    "State machine definition contains retry policies on Polly task with Polly.ServiceException and Polly.ThrottlingException errors",
+    "State machine definition contains granular Catch blocks for Lambda.ServiceException and Polly.ServiceException (not just States.ALL)",
+    "Lambda function has TracingConfig Mode=Active in synthesized template",
+    "State machine has TracingConfiguration Enabled=true in synthesized template",
+    "At least 2 CloudWatch Alarm resources exist in the synthesized template (state machine failures, Lambda errors)",
+    "A CloudWatch Dashboard resource exists in the synthesized template",
+    "Lambda handler emits structured JSON logs with request_id, status, and contextual fields",
+    "All 74+ existing tests continue to pass"
+  ],
+  "verification": [
+    "Run mvn compile and confirm BUILD SUCCESS",
+    "Run mvn test and confirm all tests pass (old and new)",
+    "Verify new test file AdvancedErrorHandlingTest.java exists with meaningful assertions on retry and catch configurations",
+    "Verify new test file ObservabilityTest.java exists with meaningful assertions on X-Ray, alarms, and dashboard"
+  ],
+  "blocked_reason": null,
+  "findings": "All 89 tests pass (74 existing + 15 new). SnapshotTest still passes without changes because it uses >= for Lambda count and the exact counts for KMS/SNS/S3/DynamoDB/EventBridge/StateMachine were unaffected by CloudWatch resources. The CDK Duration import was needed for retry interval and alarm period configuration. The metricFailed() method on StateMachine returns the ExecutionsFailed metric."
+}
