@@ -3,7 +3,8 @@
 Receives events from Step Functions containing S3 bucket, key, and audioId
 from the previous PutItem state output. Downloads input from S3, processes
 audio using Amazon Polly for text-to-speech synthesis, uploads the result
-to the output S3 bucket, and updates DynamoDB with output metadata.
+to the output S3 bucket, and returns output metadata for the state machine
+to persist in DynamoDB.
 """
 
 import json
@@ -23,7 +24,6 @@ OUTPUT_BUCKET_NAME = os.environ.get("OUTPUT_BUCKET_NAME", "")
 
 s3_client = boto3.client("s3")
 polly_client = boto3.client("polly")
-dynamodb_client = boto3.client("dynamodb")
 
 
 def _log_structured(level, request_id, status, message, **kwargs):
@@ -134,47 +134,12 @@ def _synthesize_and_upload(text, output_key, request_id):
     }
 
 
-def _update_dynamodb(audio_id, output_key, output_uri, file_size, request_id):
-    """Update DynamoDB metadata record with output information.
-
-    Args:
-        audio_id: The partition key (audioId) of the record.
-        output_key: S3 key of the output file.
-        output_uri: Full S3 URI of the output file.
-        file_size: Size of the output file in bytes.
-        request_id: Lambda request ID for logging.
-    """
-    _log_structured("INFO", request_id, "UPDATING_DB",
-                    "Updating DynamoDB with output metadata",
-                    audio_id=audio_id, output_uri=output_uri)
-
-    dynamodb_client.update_item(
-        TableName=TABLE_NAME,
-        Key={"audioId": {"S": audio_id}},
-        UpdateExpression="SET #ob = :outputBucket, #ok = :outputKey, #ou = :outputUri, #fs = :fileSize, #fmt = :format",
-        ExpressionAttributeNames={
-            "#ob": "outputBucket",
-            "#ok": "outputKey",
-            "#ou": "outputUri",
-            "#fs": "fileSize",
-            "#fmt": "outputFormat"
-        },
-        ExpressionAttributeValues={
-            ":outputBucket": {"S": OUTPUT_BUCKET_NAME},
-            ":outputKey": {"S": output_key},
-            ":outputUri": {"S": output_uri},
-            ":fileSize": {"N": str(file_size)},
-            ":format": {"S": "mp3"}
-        }
-    )
-
-
 def handler(event, context):
     """Process audio from Step Functions input.
 
     Downloads input from S3, synthesizes speech using Amazon Polly,
-    uploads the processed audio to the output S3 bucket, and updates
-    DynamoDB with output metadata.
+    uploads the processed audio to the output S3 bucket, and returns
+    output metadata for the state machine's UpdateMetadataStatus step.
 
     Args:
         event: Step Functions input containing bucket name, object key,
@@ -186,7 +151,8 @@ def handler(event, context):
         fileSize, and format on success.
 
     Raises:
-        ValueError: If required fields (bucket.name or object.key) are missing.
+        ValueError: If required fields (bucket.name or object.key) are missing,
+            or if the event bucket does not match INPUT_BUCKET_NAME.
             The unhandled exception triggers the Step Functions Catch block.
     """
     request_id = getattr(context, "aws_request_id", "unknown")
@@ -205,6 +171,17 @@ def handler(event, context):
         _log_structured("ERROR", request_id, "VALIDATION_FAILED",
                         "Missing required field: object.key")
         raise ValueError("Missing required field: object.key")
+
+    # Defense-in-depth: verify the event bucket matches the expected input bucket
+    if INPUT_BUCKET_NAME and bucket_name != INPUT_BUCKET_NAME:
+        _log_structured("ERROR", request_id, "VALIDATION_FAILED",
+                        "Bucket name mismatch: event bucket does not match INPUT_BUCKET_NAME",
+                        event_bucket=bucket_name,
+                        expected_bucket=INPUT_BUCKET_NAME)
+        raise ValueError(
+            f"Bucket name mismatch: event bucket '{bucket_name}' "
+            f"does not match expected INPUT_BUCKET_NAME '{INPUT_BUCKET_NAME}'"
+        )
 
     # Validate file extension (defense-in-depth - Choice state also validates)
     valid_extensions = (".wav", ".mp3", ".ogg", ".txt")
@@ -230,11 +207,6 @@ def handler(event, context):
 
         # Step 2: Synthesize speech and upload to S3
         output_metadata = _synthesize_and_upload(text, output_key, request_id)
-
-        # Step 3: Update DynamoDB
-        output_uri = f"s3://{OUTPUT_BUCKET_NAME}/{output_key}"
-        _update_dynamodb(audio_id, output_key, output_uri,
-                         output_metadata["fileSize"], request_id)
 
     except ValueError:
         raise

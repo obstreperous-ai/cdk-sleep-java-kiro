@@ -114,6 +114,7 @@ public class CdkBaseStack extends Stack {
                         .code(Code.fromAsset("src/main/resources/lambda/audio-processor"))
                         .tracing(Tracing.ACTIVE)
                         .timeout(Duration.seconds(120))
+                        .memorySize(256)
                         .environment(Map.of(
                                 "TABLE_NAME", metadataTable.getTableName(),
                                 "INPUT_BUCKET_NAME", inputBucket.getBucketName(),
