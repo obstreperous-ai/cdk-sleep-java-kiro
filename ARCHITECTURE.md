@@ -296,13 +296,42 @@ The `PipelineStack` provides a skeleton CDK Pipelines construct for future CI/CD
 
 The pipeline is currently a standalone stack (`PipelineStack`) that synthesizes but is not deployed. To activate it, replace the placeholder connection ARN with a valid CodeStar Connections ARN and add deployment stages for each target environment.
 
+### Audio Processing Pipeline Details
+
+The `ProcessAudioMetadata` Lambda function implements the complete audio processing pipeline within a single invocation. This section describes the internal processing steps and output artifacts.
+
+**Input Handling:**
+- The Lambda receives the S3 bucket name and object key from the Step Functions event payload.
+- It downloads the input file from the S3 Input Bucket using the `s3:GetObject` API.
+- Required environment variables: `INPUT_BUCKET_NAME`, `OUTPUT_BUCKET_NAME`, `TABLE_NAME`.
+
+**Processing Logic:**
+- **Text files (.txt):** The file content is read as text and passed to Amazon Polly `synthesize_speech()` (synchronous API, suitable for texts up to 3000 characters). The Neural engine with the "Joanna" voice is used to generate high-quality TTS audio in MP3 format.
+- **Audio files (.wav, .mp3, .ogg):** Polly is invoked with narration text derived from the filename to generate an accompanying audio narration in MP3 format.
+
+**Output:**
+- The resulting MP3 audio is uploaded to the S3 Output Bucket.
+- The output key follows the naming convention: `processed/<audioId>.mp3` where `audioId` is derived from the original input object key.
+- The output URI is constructed as `s3://<output-bucket>/processed/<audioId>.mp3`.
+
+**Metadata Update:**
+- After successful processing, the Lambda updates the DynamoDB metadata record with:
+  - `outputBucket`: The name of the output S3 bucket.
+  - `outputKey`: The S3 key of the processed audio file.
+  - `outputUri`: The full S3 URI of the processed audio file.
+  - `fileSize`: The size of the output audio file in bytes.
+  - `format`: The output audio format (MP3).
+
+**Error Handling:**
+- All operations use structured JSON logging with correlation IDs.
+- Descriptive `ValueError` exceptions are raised for unsupported file formats or missing event fields.
+- AWS SDK errors (S3, Polly, DynamoDB) propagate as Lambda task errors, which are caught by the state machine's granular Catch blocks and routed to the failure path.
+
 ### Planned
 
 | Component | Notes |
 |-----------|-------|
-| Lambda: Polly TTS | Invokes Amazon Polly Neural TTS for voice generation |
 | Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged) |
-| Lambda: Metadata Extraction | Extracts final audio metadata, writes to DynamoDB |
 | KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3) for buckets; will migrate to CMK per environment |
 
 ---
