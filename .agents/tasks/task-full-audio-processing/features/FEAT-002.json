@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Update ARCHITECTURE.md to accurately reflect the now-functional audio processing pipeline. Remove the note about Polly synchronous API limitation. Update the Orchestration Layer section to describe the Lambda-based processing approach. Update the Mermaid diagram to show the Lambda handling Polly internally rather than a separate SynthesizeSpeech state. Move Polly TTS from 'Planned' to the existing implementation table. Add a section describing the processing steps and output artifacts.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Update the 'Implemented' table in ARCHITECTURE.md: (a) Update the Lambda entry to reflect its new capabilities (S3 read/write, Polly synthesis, DynamoDB update). (b) Remove 'Lambda: Polly TTS' from the 'Planned' table (it is now integrated into the main Lambda). (c) Update the Step Functions state machine description to remove the SynthesizeSpeech step and show the Lambda doing all processing.",
     "Step 2 - Update the 'Orchestration Layer' section: (a) Change the happy path to: PutMetadataRecord -> ValidateFileExtension -> ProcessAudioMetadata(Lambda, full processing) -> UpdateMetadataStatus(COMPLETED) -> PublishSuccessNotification. (b) Remove all references to the SynthesizeSpeech Polly task as a separate state. (c) Remove the note about synchronous Polly API binary AudioStream limitation. (d) Update the ProcessAudioMetadata Lambda description to include: downloads input from S3, determines processing type, invokes Polly for TTS synthesis, uploads output to S3 output bucket, updates DynamoDB with output metadata.",
@@ -23,5 +23,5 @@
     "Run 'mvn compile' - build still succeeds"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Documentation-only change. Removed Lambda: Polly TTS and Lambda: Metadata Extraction from Planned table. Added Audio Processing Pipeline Details section describing input handling, processing logic, output, metadata update, and error handling. Mermaid diagram was already correct from FEAT-001 (PollyTTS node removed, ProcessAudio connects to S3Output and DDB directly, all components styled as implemented). Build and tests pass (96 tests)."
 }
