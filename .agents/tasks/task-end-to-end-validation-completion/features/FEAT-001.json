@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Enhance end-to-end validation tests to comprehensively cover the complete pipeline flow. The existing EndToEndFlowTest.java validates state chain ordering and error paths. Extend it to also validate: (1) the complete happy path including DynamoDB metadata record creation with output fields, (2) SNS notifications contain correct payloads for both success and failure, (3) retry configuration on all critical tasks, (4) the full input validation rejection flow verifying that the ValidationError Pass state injects correct error context for downstream tasks. Additionally, create a new ComprehensiveEndToEndTest.java that validates cross-cutting concerns: EventBridge triggers the state machine, Lambda has all required environment variables and permissions, state machine has proper IAM permissions for DynamoDB/SNS/Lambda, and the complete resource count is consistent.",
+  "status": "in_progress",
+  "steps": [
+    "Read the existing src/test/java/com/myorg/EndToEndFlowTest.java to understand current coverage",
+    "Create src/test/java/com/myorg/ComprehensiveEndToEndTest.java following the existing test pattern (App, CdkBaseStack, Template.fromStack, ObjectMapper for state machine parsing)",
+    "Add test: testCompletePipelineResourceIntegrity - validates all expected resource types exist with correct counts (2 S3 buckets, 1 DynamoDB table, 1 state machine, 1 EventBridge rule, 2 SNS topics, 1 KMS key, 1+ Lambda functions, 2+ CloudWatch alarms, 1 dashboard)",
+    "Add test: testHappyPathDynamoDbUpdatesContainOutputMetadata - parse state machine def, verify UpdateMetadataStatus parameters include outputBucket, outputKey, outputUri from $.lambdaResult",
+    "Add test: testSuccessNotificationContainsAudioIdAndStatus - parse state machine def, verify PublishSuccessNotification message payload contains audioId and status=COMPLETED",
+    "Add test: testFailureNotificationContainsErrorDetails - parse state machine def, verify PublishFailureNotification message payload contains audioId, status=FAILED, error, and cause fields",
+    "Add test: testAllCriticalTasksHaveRetryConfiguration - verify PutMetadataRecord, ProcessAudioMetadata, UpdateMetadataStatus, PublishSuccessNotification, and PublishFailureNotification all have Retry blocks",
+    "Add test: testValidationErrorPassStateInjectsErrorContext - verify the ValidationError Pass state has Result with Error and Cause fields and resultPath $.error",
+    "Add test: testEventBridgeToStateMachineIntegration - verify the EventBridge rule target references the state machine ARN and uses $.detail input transformation",
+    "Add test: testStateMachineHasRequiredIamPermissions - verify IAM policies grant dynamodb:putItem, dynamodb:updateItem, sns:Publish, lambda:InvokeFunction scoped to resource ARNs",
+    "Run 'mvn test' to confirm all new tests pass alongside existing 96 tests"
+  ],
+  "acceptance_criteria": [
+    "A new ComprehensiveEndToEndTest.java file exists with at least 8 tests covering cross-cutting E2E validation",
+    "All new tests pass when running 'mvn test'",
+    "Total test count increases from 96 to at least 104",
+    "Tests verify real synthesized template content (not just string contains), using ObjectMapper JSON parsing where appropriate"
+  ],
+  "verification": [
+    "Run 'mvn test' and confirm all tests pass with 0 failures",
+    "Run 'NODE_OPTIONS=\"\" npx cdk synth' and confirm it produces valid output"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

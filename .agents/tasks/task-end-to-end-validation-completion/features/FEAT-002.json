@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Polish and finalize all project documentation. Update README.md with comprehensive project overview, architecture summary, deployment/testing instructions, and usage guide. Finalize ARCHITECTURE.md ensuring the Mermaid diagram is accurate and complete. Update CONTRIBUTING.md and AGENT_GUIDELINES.md to reflect final project state. Create SUMMARY.md capturing key decisions, what was built, lessons learned, and notes for the final experiment report. Perform final code clean-up pass for consistency.",
+  "status": "pending",
+  "steps": [
+    "Read current README.md, ARCHITECTURE.md, CONTRIBUTING.md, and .github/AGENT_GUIDELINES.md",
+    "Rewrite README.md with: (a) clear project overview of the Sleep Audio Pipeline, (b) architecture summary with key AWS services used, (c) prerequisites section (Java 17+, Maven 3.9+, Node.js, AWS CDK CLI), (d) getting started / quick start section, (e) how to run tests locally, (f) how to deploy, (g) environment configuration section explaining CDK context, (h) project structure section, (i) links to ARCHITECTURE.md, CONTRIBUTING.md, and SUMMARY.md",
+    "Review ARCHITECTURE.md Mermaid diagram for accuracy against CdkBaseStack.java - ensure all implemented components are shown (S3 Input/Output, EventBridge, Step Functions with all states, Lambda, DynamoDB, SNS topics, KMS, CloudWatch Alarms/Dashboard, X-Ray). Ensure the diagram flows correctly and is readable",
+    "Update CONTRIBUTING.md if needed - verify TDD workflow, commit conventions, and development setup sections are accurate and complete",
+    "Update .github/AGENT_GUIDELINES.md to reflect the completed project state",
+    "Create SUMMARY.md at project root with: (a) Project Overview section, (b) Key Decisions Made (TDD-first, single stack, Lambda-encapsulated Polly, Choice-based validation, dual SNS topics, CDK Pipelines skeleton), (c) What Was Built (complete list of all infrastructure components), (d) Architecture Highlights, (e) Testing Strategy section describing 14 test files and 100+ assertions, (f) Environment Setup notes, (g) Known Limitations / Future Work, (h) Experiment Notes section useful for the final report",
+    "Review .github/workflows/ci.yml for completeness - confirm it runs tests and cdk synth for both dev and prod environments (already done)",
+    "Do a final consistency pass on CdkBaseStack.java - add/improve inline comments where helpful, ensure import ordering is clean",
+    "Run 'mvn test' and 'NODE_OPTIONS=\"\" npx cdk synth' to confirm everything still passes"
+  ],
+  "acceptance_criteria": [
+    "README.md has clear sections for overview, architecture, prerequisites, getting started, testing, deployment, and configuration",
+    "ARCHITECTURE.md Mermaid diagram accurately reflects all implemented components in CdkBaseStack.java",
+    "SUMMARY.md exists at project root with key decisions, what was built, and experiment notes",
+    "CONTRIBUTING.md and AGENT_GUIDELINES.md are accurate and up-to-date",
+    "All tests still pass (mvn test) and cdk synth succeeds",
+    "CI workflow is complete and covers both dev and prod environments"
+  ],
+  "verification": [
+    "Run 'mvn test' and confirm all tests pass",
+    "Run 'NODE_OPTIONS=\"\" npx cdk synth' and confirm valid output",
+    "Verify SUMMARY.md exists and contains required sections"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
