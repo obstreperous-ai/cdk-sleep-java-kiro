@@ -25,65 +25,6 @@ public class AdvancedErrorHandlingTest {
     }
 
     @Test
-    public void testPollyTaskHasRetryPolicy() throws Exception {
-        JsonNode definition = getStateMachineDefinition();
-        JsonNode states = definition.get("States");
-        JsonNode pollyState = states.get("SynthesizeSpeech");
-        assertNotNull(pollyState, "SynthesizeSpeech state should exist");
-
-        JsonNode retriers = pollyState.get("Retry");
-        assertNotNull(retriers, "SynthesizeSpeech should have Retry configuration");
-        assertTrue(retriers.isArray() && retriers.size() > 0,
-            "SynthesizeSpeech should have at least one retry policy");
-
-        // Check for Polly-specific errors in the retry config
-        boolean hasPollyServiceException = false;
-        boolean hasPollyThrottling = false;
-        for (JsonNode retrier : retriers) {
-            JsonNode errors = retrier.get("ErrorEquals");
-            for (JsonNode error : errors) {
-                if ("Polly.ServiceException".equals(error.asText())) {
-                    hasPollyServiceException = true;
-                }
-                if ("Polly.ThrottlingException".equals(error.asText())) {
-                    hasPollyThrottling = true;
-                }
-            }
-        }
-        assertTrue(hasPollyServiceException,
-            "Polly retry should include Polly.ServiceException");
-        assertTrue(hasPollyThrottling,
-            "Polly retry should include Polly.ThrottlingException");
-    }
-
-    @Test
-    public void testPollyRetryHasBackoffConfig() throws Exception {
-        JsonNode definition = getStateMachineDefinition();
-        JsonNode states = definition.get("States");
-        JsonNode pollyState = states.get("SynthesizeSpeech");
-        JsonNode retriers = pollyState.get("Retry");
-
-        boolean foundConfig = false;
-        for (JsonNode retrier : retriers) {
-            JsonNode errors = retrier.get("ErrorEquals");
-            for (JsonNode error : errors) {
-                if ("Polly.ServiceException".equals(error.asText())) {
-                    assertEquals(3, retrier.get("MaxAttempts").asInt(),
-                        "Polly retry maxAttempts should be 3");
-                    assertEquals(2, retrier.get("IntervalSeconds").asInt(),
-                        "Polly retry interval should be 2 seconds");
-                    assertEquals(2.0, retrier.get("BackoffRate").asDouble(), 0.01,
-                        "Polly retry backoff rate should be 2.0");
-                    foundConfig = true;
-                    break;
-                }
-            }
-            if (foundConfig) break;
-        }
-        assertTrue(foundConfig, "Should find Polly retry config with backoff parameters");
-    }
-
-    @Test
     public void testLambdaTaskRetryIncludesAWSLambdaException() throws Exception {
         JsonNode definition = getStateMachineDefinition();
         JsonNode states = definition.get("States");
@@ -140,37 +81,6 @@ public class AdvancedErrorHandlingTest {
     }
 
     @Test
-    public void testPollyTaskHasGranularCatchBlock() throws Exception {
-        JsonNode definition = getStateMachineDefinition();
-        JsonNode states = definition.get("States");
-        JsonNode pollyState = states.get("SynthesizeSpeech");
-        JsonNode catchers = pollyState.get("Catch");
-        assertNotNull(catchers, "SynthesizeSpeech should have Catch configuration");
-
-        // Should have at least 2 catch blocks: specific errors + States.ALL
-        assertTrue(catchers.size() >= 2,
-            "SynthesizeSpeech should have at least 2 Catch blocks (granular + States.ALL)");
-
-        // First catch should be for specific Polly errors (evaluated first)
-        JsonNode firstCatch = catchers.get(0);
-        JsonNode firstErrors = firstCatch.get("ErrorEquals");
-        boolean hasPollyServiceException = false;
-        boolean hasPollyThrottling = false;
-        for (JsonNode error : firstErrors) {
-            if ("Polly.ServiceException".equals(error.asText())) {
-                hasPollyServiceException = true;
-            }
-            if ("Polly.ThrottlingException".equals(error.asText())) {
-                hasPollyThrottling = true;
-            }
-        }
-        assertTrue(hasPollyServiceException,
-            "First catch should include Polly.ServiceException");
-        assertTrue(hasPollyThrottling,
-            "First catch should include Polly.ThrottlingException");
-    }
-
-    @Test
     public void testGranularCatchRoutesToFailurePath() throws Exception {
         JsonNode definition = getStateMachineDefinition();
         JsonNode states = definition.get("States");
@@ -180,12 +90,6 @@ public class AdvancedErrorHandlingTest {
         JsonNode lambdaCatchers = lambdaState.get("Catch");
         assertEquals("UpdateMetadataStatusFailed", lambdaCatchers.get(0).get("Next").asText(),
             "Lambda granular catch should route to UpdateMetadataStatusFailed");
-
-        // Polly granular catch routes to UpdateMetadataStatusFailed
-        JsonNode pollyState = states.get("SynthesizeSpeech");
-        JsonNode pollyCatchers = pollyState.get("Catch");
-        assertEquals("UpdateMetadataStatusFailed", pollyCatchers.get(0).get("Next").asText(),
-            "Polly granular catch should route to UpdateMetadataStatusFailed");
     }
 
     @Test
@@ -198,12 +102,50 @@ public class AdvancedErrorHandlingTest {
         JsonNode lambdaCatchers = lambdaState.get("Catch");
         assertEquals("$.error", lambdaCatchers.get(0).get("ResultPath").asText(),
             "Lambda granular catch should use $.error resultPath");
+    }
 
-        // Polly granular catch uses $.error resultPath
-        JsonNode pollyState = states.get("SynthesizeSpeech");
-        JsonNode pollyCatchers = pollyState.get("Catch");
-        assertEquals("$.error", pollyCatchers.get(0).get("ResultPath").asText(),
-            "Polly granular catch should use $.error resultPath");
+    @Test
+    public void testUpdateMetadataStatusHasCatchBlock() throws Exception {
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+
+        JsonNode updateState = states.get("UpdateMetadataStatus");
+        assertNotNull(updateState, "UpdateMetadataStatus state should exist");
+
+        JsonNode catchers = updateState.get("Catch");
+        assertNotNull(catchers, "UpdateMetadataStatus should have Catch configuration");
+
+        boolean routesToFailure = false;
+        for (JsonNode catcher : catchers) {
+            if ("UpdateMetadataStatusFailed".equals(catcher.get("Next").asText())) {
+                routesToFailure = true;
+                break;
+            }
+        }
+        assertTrue(routesToFailure,
+            "UpdateMetadataStatus Catch should route to UpdateMetadataStatusFailed");
+    }
+
+    @Test
+    public void testSuccessPublishHasCatchBlock() throws Exception {
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+
+        JsonNode publishState = states.get("PublishSuccessNotification");
+        assertNotNull(publishState, "PublishSuccessNotification state should exist");
+
+        JsonNode catchers = publishState.get("Catch");
+        assertNotNull(catchers, "PublishSuccessNotification should have Catch configuration");
+
+        boolean routesToFailure = false;
+        for (JsonNode catcher : catchers) {
+            if ("UpdateMetadataStatusFailed".equals(catcher.get("Next").asText())) {
+                routesToFailure = true;
+                break;
+            }
+        }
+        assertTrue(routesToFailure,
+            "PublishSuccessNotification Catch should route to UpdateMetadataStatusFailed");
     }
 
     /**

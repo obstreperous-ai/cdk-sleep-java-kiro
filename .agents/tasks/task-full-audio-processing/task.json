@@ -1,0 +1,7 @@
+{
+  "task_id": "task-full-audio-processing",
+  "task_description": "Implement the full audio processing pipeline following TDD: replace the placeholder synchronous Polly SDK call in the Step Functions state machine with a Lambda-based approach that downloads input from S3, processes audio via Polly, uploads output to the output S3 bucket, updates DynamoDB with metadata, and returns structured output. Update ARCHITECTURE.md to reflect the functional pipeline.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

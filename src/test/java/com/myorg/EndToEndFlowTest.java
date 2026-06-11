@@ -27,7 +27,7 @@ public class EndToEndFlowTest {
     @Test
     public void testHappyPathStateChainOrder() throws Exception {
         // Verify the complete happy-path state chain:
-        // PutMetadataRecord -> ValidateFileExtension -> ProcessAudioMetadata -> SynthesizeSpeech -> UpdateMetadataStatus -> PublishSuccessNotification
+        // PutMetadataRecord -> ValidateFileExtension -> ProcessAudioMetadata -> UpdateMetadataStatus -> PublishSuccessNotification
         JsonNode definition = getStateMachineDefinition();
         JsonNode states = definition.get("States");
 
@@ -55,25 +55,19 @@ public class EndToEndFlowTest {
         assertTrue(routesToProcessAudio,
             "ValidateFileExtension should route valid extensions to ProcessAudioMetadata");
 
-        // Step 3: ProcessAudioMetadata -> SynthesizeSpeech
+        // Step 3: ProcessAudioMetadata -> UpdateMetadataStatus
         JsonNode processAudio = states.get("ProcessAudioMetadata");
         assertNotNull(processAudio, "ProcessAudioMetadata state should exist");
-        assertEquals("SynthesizeSpeech", processAudio.get("Next").asText(),
-            "ProcessAudioMetadata should chain to SynthesizeSpeech");
+        assertEquals("UpdateMetadataStatus", processAudio.get("Next").asText(),
+            "ProcessAudioMetadata should chain to UpdateMetadataStatus");
 
-        // Step 4: SynthesizeSpeech -> UpdateMetadataStatus
-        JsonNode synthesize = states.get("SynthesizeSpeech");
-        assertNotNull(synthesize, "SynthesizeSpeech state should exist");
-        assertEquals("UpdateMetadataStatus", synthesize.get("Next").asText(),
-            "SynthesizeSpeech should chain to UpdateMetadataStatus");
-
-        // Step 5: UpdateMetadataStatus -> PublishSuccessNotification
+        // Step 4: UpdateMetadataStatus -> PublishSuccessNotification
         JsonNode updateStatus = states.get("UpdateMetadataStatus");
         assertNotNull(updateStatus, "UpdateMetadataStatus state should exist");
         assertEquals("PublishSuccessNotification", updateStatus.get("Next").asText(),
             "UpdateMetadataStatus should chain to PublishSuccessNotification");
 
-        // Step 6: PublishSuccessNotification is the terminal state (End=true)
+        // Step 5: PublishSuccessNotification is the terminal state (End=true)
         JsonNode publishSuccess = states.get("PublishSuccessNotification");
         assertNotNull(publishSuccess, "PublishSuccessNotification state should exist");
         assertTrue(publishSuccess.get("End").asBoolean(),
@@ -119,27 +113,6 @@ public class EndToEndFlowTest {
         }
         assertTrue(routesToFailure,
             "ProcessAudioMetadata Catch should route to UpdateMetadataStatusFailed");
-    }
-
-    @Test
-    public void testSynthesizeSpeechCatchRoutesToFailurePath() throws Exception {
-        // Verify that SynthesizeSpeech has a Catch that routes to UpdateMetadataStatusFailed
-        JsonNode definition = getStateMachineDefinition();
-        JsonNode states = definition.get("States");
-        JsonNode synthesize = states.get("SynthesizeSpeech");
-        assertNotNull(synthesize, "SynthesizeSpeech state should exist");
-
-        JsonNode catchers = synthesize.get("Catch");
-        assertNotNull(catchers, "SynthesizeSpeech should have Catch configuration");
-        boolean routesToFailure = false;
-        for (JsonNode catcher : catchers) {
-            if ("UpdateMetadataStatusFailed".equals(catcher.get("Next").asText())) {
-                routesToFailure = true;
-                break;
-            }
-        }
-        assertTrue(routesToFailure,
-            "SynthesizeSpeech Catch should route to UpdateMetadataStatusFailed");
     }
 
     @Test

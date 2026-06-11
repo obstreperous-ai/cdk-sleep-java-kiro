@@ -39,6 +39,8 @@ import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke;
 
+import software.amazon.awscdk.services.iam.PolicyStatement;
+
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.Tags;
 import software.amazon.awscdk.services.lambda.Tracing;
@@ -111,13 +113,31 @@ public class CdkBaseStack extends Stack {
                         .handler("index.handler")
                         .code(Code.fromAsset("src/main/resources/lambda/audio-processor"))
                         .tracing(Tracing.ACTIVE)
+                        .timeout(Duration.seconds(120))
+                        .memorySize(256)
                         .environment(Map.of(
-                                "TABLE_NAME", metadataTable.getTableName()
+                                "TABLE_NAME", metadataTable.getTableName(),
+                                "INPUT_BUCKET_NAME", inputBucket.getBucketName(),
+                                "OUTPUT_BUCKET_NAME", outputBucket.getBucketName()
                         ))
                         .build();
 
-        // Grant Lambda read access to DynamoDB metadata table
-        metadataTable.grantReadData(audioProcessorFunction);
+        // Grant Lambda read/write access to DynamoDB metadata table
+        metadataTable.grantReadWriteData(audioProcessorFunction);
+
+        // Grant Lambda read access to input S3 bucket
+        inputBucket.grantRead(audioProcessorFunction);
+
+        // Grant Lambda read/write access to output S3 bucket
+        outputBucket.grantReadWrite(audioProcessorFunction);
+
+        // Grant Lambda Polly permissions
+        audioProcessorFunction.addToRolePolicy(
+                software.amazon.awscdk.services.iam.PolicyStatement.Builder.create()
+                        .actions(List.of("polly:SynthesizeSpeech"))
+                        .resources(List.of("*"))
+                        .build()
+        );
 
         // DynamoDB PutItem task - writes initial metadata record with PROCESSING status
         CallAwsService putItemTask = CallAwsService.Builder.create(this, "PutMetadataRecord")
@@ -156,27 +176,7 @@ public class CdkBaseStack extends Stack {
                 .backoffRate(2.0)
                 .build());
 
-        // Polly SynthesizeSpeech task using CallAwsService
-        CallAwsService pollyTask = CallAwsService.Builder.create(this, "SynthesizeSpeech")
-                .service("polly")
-                .action("synthesizeSpeech")
-                .parameters(Map.of(
-                        "OutputFormat", "mp3",
-                        "Text", "placeholder text for sleep audio",
-                        "VoiceId", "Joanna"
-                ))
-                .iamResources(List.of("*"))
-                .resultPath("$.pollyResult")
-                .build();
-
-        pollyTask.addRetry(RetryProps.builder()
-                .errors(List.of("Polly.ServiceException", "Polly.ThrottlingException", "States.Timeout"))
-                .maxAttempts(3)
-                .interval(Duration.seconds(2))
-                .backoffRate(2.0)
-                .build());
-
-        // DynamoDB UpdateItem task - updates status to COMPLETED after Polly processing
+        // DynamoDB UpdateItem task - updates status to COMPLETED after processing
         CallAwsService updateItemTask = CallAwsService.Builder.create(this, "UpdateMetadataStatus")
                 .service("dynamodb")
                 .action("updateItem")
@@ -185,14 +185,20 @@ public class CdkBaseStack extends Stack {
                         "Key", Map.of(
                                 "audioId", Map.of("S", JsonPath.stringAt("$.object.key"))
                         ),
-                        "UpdateExpression", "SET #s = :status, #u = :updatedAt",
+                        "UpdateExpression", "SET #s = :status, #u = :updatedAt, #ob = :outputBucket, #ok = :outputKey, #ou = :outputUri",
                         "ExpressionAttributeNames", Map.of(
                                 "#s", "status",
-                                "#u", "updatedAt"
+                                "#u", "updatedAt",
+                                "#ob", "outputBucket",
+                                "#ok", "outputKey",
+                                "#ou", "outputUri"
                         ),
                         "ExpressionAttributeValues", Map.of(
                                 ":status", Map.of("S", "COMPLETED"),
-                                ":updatedAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime"))
+                                ":updatedAt", Map.of("S", JsonPath.stringAt("$$.State.EnteredTime")),
+                                ":outputBucket", Map.of("S", JsonPath.stringAt("$.lambdaResult.outputBucket")),
+                                ":outputKey", Map.of("S", JsonPath.stringAt("$.lambdaResult.outputKey")),
+                                ":outputUri", Map.of("S", JsonPath.stringAt("$.lambdaResult.outputUri"))
                         )
                 ))
                 .iamResources(List.of(metadataTable.getTableArn()))
@@ -289,8 +295,8 @@ public class CdkBaseStack extends Stack {
         // Wire failure path: UpdateItem(FAILED) -> SnsPublish(Failed)
         failureUpdateTask.next(failurePublishTask);
 
-        // Chain: PutItem -> Lambda -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
-        // with Catch on lambdaInvokeTask, pollyTask, updateItemTask, and successPublishTask routing to failure path
+        // Chain: PutItem -> Lambda -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
+        // with Catch on lambdaInvokeTask, updateItemTask, and successPublishTask routing to failure path
 
         // Granular catch for Lambda-specific errors (evaluated first)
         // These service-specific catches intentionally route to the same failure path as States.ALL
@@ -303,20 +309,6 @@ public class CdkBaseStack extends Stack {
 
         // Catch-all for Lambda task (evaluated second)
         lambdaInvokeTask.addCatch(failureUpdateTask, CatchProps.builder()
-                .errors(List.of("States.ALL"))
-                .resultPath("$.error")
-                .build());
-
-        // Granular catch for Polly-specific errors (evaluated first)
-        // Same pattern as Lambda: intentionally routes to the same failure path as States.ALL
-        // to establish structure for future differentiated error handling.
-        pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
-                .errors(List.of("Polly.ServiceException", "Polly.ThrottlingException"))
-                .resultPath("$.error")
-                .build());
-
-        // Catch-all for Polly task (evaluated second)
-        pollyTask.addCatch(failureUpdateTask, CatchProps.builder()
                 .errors(List.of("States.ALL"))
                 .resultPath("$.error")
                 .build());
@@ -355,9 +347,8 @@ public class CdkBaseStack extends Stack {
         // Wire: ValidationError Pass -> UpdateMetadataStatusFailed -> PublishFailureNotification
         validationErrorState.next(failureUpdateTask);
 
-        // Processing chain: Lambda -> Polly -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
+        // Processing chain: Lambda -> UpdateItem(COMPLETED) -> SnsPublish(Completed)
         Chain processingChain = Chain.start(lambdaInvokeTask)
-                .next(pollyTask)
                 .next(updateItemTask)
                 .next(successPublishTask);
 
