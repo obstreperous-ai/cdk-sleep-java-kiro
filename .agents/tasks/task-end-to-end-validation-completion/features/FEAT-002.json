@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Polish and finalize all project documentation. Update README.md with comprehensive project overview, architecture summary, deployment/testing instructions, and usage guide. Finalize ARCHITECTURE.md ensuring the Mermaid diagram is accurate and complete. Update CONTRIBUTING.md and AGENT_GUIDELINES.md to reflect final project state. Create SUMMARY.md capturing key decisions, what was built, lessons learned, and notes for the final experiment report. Perform final code clean-up pass for consistency.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Read current README.md, ARCHITECTURE.md, CONTRIBUTING.md, and .github/AGENT_GUIDELINES.md",
     "Rewrite README.md with: (a) clear project overview of the Sleep Audio Pipeline, (b) architecture summary with key AWS services used, (c) prerequisites section (Java 17+, Maven 3.9+, Node.js, AWS CDK CLI), (d) getting started / quick start section, (e) how to run tests locally, (f) how to deploy, (g) environment configuration section explaining CDK context, (h) project structure section, (i) links to ARCHITECTURE.md, CONTRIBUTING.md, and SUMMARY.md",
@@ -28,5 +28,5 @@
     "Verify SUMMARY.md exists and contains required sections"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All documentation updated successfully. ARCHITECTURE.md Mermaid diagram corrected to show KMS encrypting SNS topics (not S3 buckets, which use SSE-S3). IAM Roles and KMS Keys reclassified as implemented (they were incorrectly marked as planned). All 104 tests pass and CDK synth succeeds."
 }
