@@ -44,9 +44,10 @@ Never submit code without a corresponding test. Every infrastructure construct m
 
 ### Prerequisites
 
-- **Java 17** or later
-- **Maven 3.9+**
-- **AWS CDK CLI** (for synth/deploy commands, not required for tests)
+- **Java 17** or later (project compiles at source level 17)
+- **Maven 3.9+** (for build and dependency management)
+- **Node.js 20+** (required for AWS CDK CLI)
+- **AWS CDK CLI** (`npm install -g aws-cdk`)
 
 ### Building and Testing
 
@@ -54,22 +55,83 @@ Never submit code without a corresponding test. Every infrastructure construct m
 # Compile the project
 mvn compile
 
-# Run all tests
+# Run all tests (104+ assertions across 15 test files)
 mvn test
+
+# Run a specific test class
+mvn test -Dtest=EndToEndFlowTest
 
 # Package (compile + test)
 mvn package
 
 # Synthesize CloudFormation template (requires CDK CLI)
-cdk synth
+npx cdk synth
+
+# Synthesize for a specific environment
+npx cdk synth -c environment=prod
 ```
+
+### Important Notes
+
+- If `NODE_OPTIONS` is set in your environment, clear it before running CDK commands: `NODE_OPTIONS="" npx cdk synth`
+- The project uses Maven proxy settings; ensure `~/.m2/settings.xml` is configured if behind a corporate proxy
+- Tests run entirely locally using CDK assertion APIs; no AWS credentials are needed for testing
 
 ### Project Structure
 
-- `src/main/java/com/myorg/` - CDK app and stack definitions
-- `src/test/java/com/myorg/` - CDK assertion tests
-- `pom.xml` - Maven configuration and dependencies
-- `cdk.json` - CDK toolkit configuration
+```
+src/main/java/com/myorg/     - CDK app and stack definitions
+src/main/resources/lambda/   - Python Lambda function source
+src/test/java/com/myorg/     - CDK assertion tests (15 files)
+pom.xml                      - Maven configuration and dependencies
+cdk.json                     - CDK toolkit configuration and context
+```
+
+## Architecture Sync
+
+When modifying CDK constructs:
+
+1. Update the corresponding test first (TDD)
+2. Implement the change in `CdkBaseStack.java`
+3. Update the Mermaid diagram in [ARCHITECTURE.md](ARCHITECTURE.md) to reflect the change
+4. Run `mvn test` to verify all tests pass
+5. Run `npx cdk synth` to verify synthesis succeeds
+
+The Mermaid diagram must always represent the current state of deployed infrastructure.
+
+## Testing Patterns
+
+This project uses the following CDK assertion patterns:
+
+- **Template.fromStack()** - Synthesize a stack and assert against the CloudFormation template
+- **hasResourceProperties()** - Verify a resource exists with specific properties
+- **Match.objectLike() / Match.arrayWith()** - Flexible property matching
+- **ObjectMapper JSON parsing** - Parse state machine DefinitionString for Step Functions flow validation
+- **findResources()** - Count and inspect resources by type
+
+### Example Test
+
+```java
+@Test
+public void testInputBucketExists() {
+    Template template = Template.fromStack(stack);
+    template.hasResourceProperties("AWS::S3::Bucket", Match.objectLike(Map.of(
+        "BucketEncryption", Match.objectLike(Map.of(
+            "ServerSideEncryptionConfiguration", Match.anyValue()
+        ))
+    )));
+}
+```
+
+## CI Pipeline
+
+The GitHub Actions workflow validates every push and pull request:
+
+1. Runs all Maven tests
+2. Synthesizes CloudFormation for the dev environment
+3. Synthesizes CloudFormation for the prod environment
+
+Ensure your changes pass all three checks before opening a pull request.
 
 ## AI Agent Contributors
 
