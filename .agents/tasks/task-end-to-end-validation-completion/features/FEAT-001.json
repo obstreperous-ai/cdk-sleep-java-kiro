@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Enhance end-to-end validation tests to comprehensively cover the complete pipeline flow. The existing EndToEndFlowTest.java validates state chain ordering and error paths. Extend it to also validate: (1) the complete happy path including DynamoDB metadata record creation with output fields, (2) SNS notifications contain correct payloads for both success and failure, (3) retry configuration on all critical tasks, (4) the full input validation rejection flow verifying that the ValidationError Pass state injects correct error context for downstream tasks. Additionally, create a new ComprehensiveEndToEndTest.java that validates cross-cutting concerns: EventBridge triggers the state machine, Lambda has all required environment variables and permissions, state machine has proper IAM permissions for DynamoDB/SNS/Lambda, and the complete resource count is consistent.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Read the existing src/test/java/com/myorg/EndToEndFlowTest.java to understand current coverage",
     "Create src/test/java/com/myorg/ComprehensiveEndToEndTest.java following the existing test pattern (App, CdkBaseStack, Template.fromStack, ObjectMapper for state machine parsing)",
@@ -27,5 +27,5 @@
     "Run 'NODE_OPTIONS=\"\" npx cdk synth' and confirm it produces valid output"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "CDK Java jsii binding expands IAM policy statement arrays into individual text-valued statements when accessed via template.findResources(). For example, [\"dynamodb:putItem\", \"dynamodb:updateItem\"] becomes two separate statements each with a text Action. Tests must check individual textual Action values rather than array matching."
 }
