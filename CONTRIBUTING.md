@@ -55,7 +55,7 @@ Never submit code without a corresponding test. Every infrastructure construct m
 # Compile the project
 mvn compile
 
-# Run all tests (104+ assertions across 15 test files)
+# Run all tests (100+ assertions across 15 test files)
 mvn test
 
 # Run a specific test class

@@ -65,7 +65,7 @@ For the complete architecture with Mermaid diagram, see [ARCHITECTURE.md](ARCHIT
 
 ## Running Tests
 
-The project includes 15 test files with 104+ assertions covering all infrastructure components:
+The project includes 15 test files with 100+ assertions covering all infrastructure components:
 
 ```bash
 # Run all tests
@@ -161,7 +161,7 @@ cdk-sleep-java-kiro/
 │   │       └── lambda/audio-processor/
 │   │           └── index.py              # Python Lambda function
 │   └── test/
-│       └── java/com/myorg/              # 15 test files (104+ tests)
+│       └── java/com/myorg/              # 15 test files (100+ tests)
 ├── .github/
 │   ├── workflows/ci.yml                  # CI: tests + cdk synth (dev + prod)
 │   └── AGENT_GUIDELINES.md              # Guidelines for AI contributors

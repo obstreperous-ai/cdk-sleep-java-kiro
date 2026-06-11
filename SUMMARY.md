@@ -103,13 +103,13 @@ The Lambda task has service-specific Catch blocks (`Lambda.ServiceException`, `L
 - **Secure**: KMS-encrypted SNS, SSL enforcement on S3, block public access, least-privilege IAM
 - **Resilient**: Retry policies on all critical tasks, granular Catch blocks for error isolation
 - **Multi-environment**: CDK context-driven configuration (dev/stage/prod)
-- **Testable**: 104+ assertions validate every component without AWS credentials
+- **Testable**: 100+ assertions validate every component without AWS credentials
 
 ## Testing Strategy
 
 ### Coverage Summary
 
-- **15 test files** with **104+ test methods**
+- **15 test files** with **100+ test methods**
 - Tests validate synthesized CloudFormation templates using CDK assertions
 - Step Functions flow is validated by parsing the DefinitionString JSON with Jackson ObjectMapper
 - No AWS credentials or deployed resources needed for testing
@@ -165,7 +165,7 @@ Both checks run in CI for dev and prod environments.
 
 ### What Worked Well
 
-- **TDD provided confidence**: Every change was immediately validated against 104+ assertions
+- **TDD provided confidence**: Every change was immediately validated against 100+ assertions
 - **CDK assertions are powerful**: Template-level testing catches misconfiguration before deployment
 - **Single stack simplicity**: Avoided cross-stack reference complexity
 - **Step Functions for orchestration**: Built-in retries and catches eliminated custom error handling code
@@ -183,7 +183,7 @@ Both checks run in CI for dev and prod environments.
 | Metric | Value |
 |--------|-------|
 | Total test files | 15 |
-| Total test methods | 104+ |
+| Total test methods | 100+ |
 | Lines of Java (main) | ~300 (CdkBaseStack + CdkBaseApp + PipelineStack) |
 | Lines of Python (Lambda) | ~200 |
 | AWS services used | 10 (S3, EventBridge, Step Functions, Lambda, Polly, DynamoDB, SNS, KMS, CloudWatch, X-Ray) |

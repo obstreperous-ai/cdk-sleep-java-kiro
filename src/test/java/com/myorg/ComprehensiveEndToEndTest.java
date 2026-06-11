@@ -35,17 +35,20 @@ public class ComprehensiveEndToEndTest {
 
     @Test
     public void testCompletePipelineResourceIntegrity() {
-        // Validate all expected resource types exist with correct counts
-        template.resourceCountIs("AWS::S3::Bucket", 2);
-        template.resourceCountIs("AWS::DynamoDB::Table", 1);
-        template.resourceCountIs("AWS::StepFunctions::StateMachine", 1);
-        template.resourceCountIs("AWS::Events::Rule", 1);
-        template.resourceCountIs("AWS::SNS::Topic", 2);
-        template.resourceCountIs("AWS::KMS::Key", 1);
-        template.resourceCountIs("AWS::CloudWatch::Alarm", 2);
-        template.resourceCountIs("AWS::CloudWatch::Dashboard", 1);
+        // Intentional regression guards: these exact counts pin the expected infrastructure
+        // footprint so that unintended resource additions or removals are caught immediately.
+        // If a count changes due to an intentional infrastructure change, update the expected
+        // value here and document the reason in the commit message.
+        template.resourceCountIs("AWS::S3::Bucket", 2);           // input + output buckets
+        template.resourceCountIs("AWS::DynamoDB::Table", 1);      // audio metadata table
+        template.resourceCountIs("AWS::StepFunctions::StateMachine", 1); // pipeline orchestrator
+        template.resourceCountIs("AWS::Events::Rule", 1);         // S3 event trigger
+        template.resourceCountIs("AWS::SNS::Topic", 2);           // success + failure notifications
+        template.resourceCountIs("AWS::KMS::Key", 1);             // encryption for SNS topics
+        template.resourceCountIs("AWS::CloudWatch::Alarm", 2);    // failure + throttle alarms
+        template.resourceCountIs("AWS::CloudWatch::Dashboard", 1); // observability dashboard
 
-        // At least 1 Lambda function (audio processor + notifications handler)
+        // At least 1 Lambda function (audio processor)
         ObjectMapper mapper = new ObjectMapper();
         try {
             String templateJson = mapper.writeValueAsString(template.toJSON());
@@ -288,34 +291,46 @@ public class ComprehensiveEndToEndTest {
                 JsonNode actionNode = stmt.get("Action");
                 JsonNode resourceNode = stmt.get("Resource");
 
+                // Collect actions from this statement, handling both scalar and array forms.
+                // CDK may emit Action as a single string or as a JSON array of strings
+                // depending on how the IAM policy is constructed.
+                java.util.List<String> actions = new java.util.ArrayList<>();
                 if (actionNode.isTextual()) {
-                    String action = actionNode.asText();
+                    actions.add(actionNode.asText());
+                } else if (actionNode.isArray()) {
+                    for (JsonNode element : actionNode) {
+                        if (element.isTextual()) {
+                            actions.add(element.asText());
+                        }
+                    }
+                }
 
+                for (String action : actions) {
                     // Check for DynamoDB putItem
                     if ("dynamodb:putItem".equals(action)) {
                         hasDynamoDbPutItem = true;
-                        assertTrue(!resourceNode.isTextual() || !"*".equals(resourceNode.asText()),
+                        assertResourceIsScoped(resourceNode,
                             "DynamoDB putItem permission should be scoped to specific resource ARN");
                     }
 
                     // Check for DynamoDB updateItem
                     if ("dynamodb:updateItem".equals(action)) {
                         hasDynamoDbUpdateItem = true;
-                        assertTrue(!resourceNode.isTextual() || !"*".equals(resourceNode.asText()),
+                        assertResourceIsScoped(resourceNode,
                             "DynamoDB updateItem permission should be scoped to specific resource ARN");
                     }
 
                     // Check for lambda:InvokeFunction
                     if ("lambda:InvokeFunction".equals(action)) {
                         hasLambdaPermission = true;
-                        assertTrue(!resourceNode.isTextual() || !"*".equals(resourceNode.asText()),
+                        assertResourceIsScoped(resourceNode,
                             "Lambda invoke permission should be scoped to specific resource ARN");
                     }
 
                     // Check for sns:Publish
                     if ("sns:Publish".equals(action)) {
                         hasSnsPermission = true;
-                        assertTrue(!resourceNode.isTextual() || !"*".equals(resourceNode.asText()),
+                        assertResourceIsScoped(resourceNode,
                             "SNS publish permission should be scoped to specific resource ARN");
                     }
                 }
@@ -333,37 +348,26 @@ public class ComprehensiveEndToEndTest {
     }
 
     /**
-     * Extracts and parses the state machine DefinitionString from the synthesized template.
-     * The DefinitionString uses Fn::Join with intrinsic references (Ref, Fn::GetAtt) that
-     * appear as non-text parts. These are replaced with placeholder strings so the JSON
-     * can be parsed to inspect state machine structure.
+     * Asserts that a Resource node in an IAM statement is not the wildcard "*".
+     * Handles both textual resource values and arrays of resource ARNs.
      */
-    private JsonNode getStateMachineDefinition() throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        String templateJson = mapper.writeValueAsString(template.toJSON());
-        JsonNode root = mapper.readTree(templateJson);
-        JsonNode resources = root.get("Resources");
-        for (java.util.Iterator<String> it = resources.fieldNames(); it.hasNext(); ) {
-            String key = it.next();
-            JsonNode resource = resources.get(key);
-            if ("AWS::StepFunctions::StateMachine".equals(resource.get("Type").asText())) {
-                JsonNode definitionString = resource.get("Properties").get("DefinitionString");
-                if (definitionString.has("Fn::Join")) {
-                    JsonNode parts = definitionString.get("Fn::Join").get(1);
-                    StringBuilder sb = new StringBuilder();
-                    for (JsonNode part : parts) {
-                        if (part.isTextual()) {
-                            sb.append(part.asText());
-                        } else {
-                            sb.append("PLACEHOLDER");
-                        }
-                    }
-                    return mapper.readTree(sb.toString());
-                } else if (definitionString.isTextual()) {
-                    return mapper.readTree(definitionString.asText());
+    private void assertResourceIsScoped(JsonNode resourceNode, String message) {
+        if (resourceNode.isTextual()) {
+            assertTrue(!"*".equals(resourceNode.asText()), message);
+        } else if (resourceNode.isArray()) {
+            for (JsonNode element : resourceNode) {
+                if (element.isTextual()) {
+                    assertTrue(!"*".equals(element.asText()), message);
                 }
             }
         }
-        throw new RuntimeException("StateMachine resource not found in template");
+        // If resourceNode is an object (Ref, Fn::GetAtt), it's inherently scoped
+    }
+
+    /**
+     * Delegates to shared TestUtils for state machine definition extraction.
+     */
+    private JsonNode getStateMachineDefinition() throws Exception {
+        return TestUtils.getStateMachineDefinition(template);
     }
 }

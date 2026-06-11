@@ -193,7 +193,7 @@ The architecture is designed to support the following planned extensions:
 
 ## Implementation Status
 
-This document describes the implemented architecture. All core pipeline components are deployed and validated by 104+ automated CDK assertion tests. The Mermaid diagram below uses green styling for all implemented components.
+This document describes the implemented architecture. All core pipeline components are deployed and validated by 100+ automated CDK assertion tests. The Mermaid diagram below uses green styling for all implemented components.
 
 ### Implemented
 

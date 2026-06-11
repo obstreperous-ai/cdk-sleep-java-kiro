@@ -8,7 +8,7 @@ You are a Senior AWS CDK Java TDD Specialist. Be explicit and verbose. Tests bef
 
 This project is a fully implemented event-driven sleep audio processing pipeline. It includes:
 
-- **15 test files** with 104+ assertions covering all infrastructure components
+- **15 test files** with 100+ assertions covering all infrastructure components
 - **CdkBaseStack** with S3, EventBridge, Step Functions, Lambda, DynamoDB, SNS, KMS, CloudWatch, and X-Ray
 - **PipelineStack** with CDK Pipelines skeleton (placeholder connection ARN)
 - **Python Lambda** (`src/main/resources/lambda/audio-processor/index.py`) for audio processing via Polly
@@ -65,7 +65,7 @@ Follow strict Test-Driven Development:
 
 After any change, always verify:
 
-1. `mvn test` - All 104+ tests must pass
+1. `mvn test` - All tests must pass
 2. `npx cdk synth` - Must produce valid CloudFormation (clear NODE_OPTIONS if needed: `NODE_OPTIONS="" npx cdk synth`)
 3. Check `git diff` - Ensure only intended files are modified
 
