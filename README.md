@@ -285,7 +285,7 @@ cdk-sleep-java-kiro/
 │   ├── main/
 │   │   ├── java/com/myorg/
 │   │   │   ├── CdkBaseApp.java              # CDK app entry point
-│   │   │   ├── CdkBaseStack.java            # Main infrastructure stack (~300 LOC)
+│   │   │   ├── CdkBaseStack.java            # Main infrastructure stack (~450 LOC)
 │   │   │   └── PipelineStack.java            # CI/CD pipeline stack
 │   │   └── resources/
 │   │       └── lambda/audio-processor/
