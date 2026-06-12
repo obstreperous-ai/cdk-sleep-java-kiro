@@ -1,0 +1,7 @@
+{
+  "task_id": "task-documentation-enrichment",
+  "task_description": "Review and enrich README.md to a professional standard. Extract reusable meta-prompting patterns from AGENT_GUIDELINES.md and project conventions into a new META-PROMPTS.md file. Ensure all documentation links work and the project remains buildable.",
+  "status": "completed",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null
+}

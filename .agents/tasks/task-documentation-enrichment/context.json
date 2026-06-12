@@ -1,0 +1,30 @@
+{
+  "project_type": "Java CDK project (AWS CDK with Java bindings) - event-driven sleep audio processing pipeline",
+  "language": "Java 17 (CDK stacks), Python 3.12 (Lambda function)",
+  "build_system": "Maven 3.9+ with CDK CLI (npx cdk). NODE_OPTIONS must be cleared for CDK commands.",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack). 15 test files, 100+ assertions.",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "1. Run 'mvn test' - all tests must pass. 2. Run 'NODE_OPTIONS=\"\" npx cdk synth' - must produce valid CloudFormation.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Java 17, Maven 3.9+, Node.js 20+ required. Run 'mvn compile' to build.",
+  "environment_constraints": "NODE_OPTIONS must be cleared for CDK/jsii commands. No Docker required for testing.",
+  "contribution_requirements": "Conventional commits (feat/fix/chore/docs/refactor). TDD-first. Update ARCHITECTURE.md Mermaid diagram if structure changes. All infrastructure needs corresponding tests.",
+  "key_patterns": "Single CdkBaseStack with all resources. Step Functions orchestration with Choice-based validation. Dual SNS topics (success/failure). CDK context-driven multi-environment. Direct SDK integration (CallAwsService) for DynamoDB. Lambda encapsulates Polly integration.",
+  "relevant_files": [
+    "README.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "SUMMARY.md",
+    ".github/AGENT_GUIDELINES.md",
+    ".github/workflows/ci.yml",
+    "pom.xml",
+    "cdk.json",
+    "mise.toml",
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/java/com/myorg/CdkBaseApp.java",
+    "src/main/java/com/myorg/PipelineStack.java",
+    "src/main/resources/lambda/audio-processor/index.py"
+  ],
+  "directory_structure": "src/main/java/com/myorg/ - CDK app and stack definitions (3 files). src/main/resources/lambda/audio-processor/ - Python Lambda. src/test/java/com/myorg/ - 15 test files + TestUtils.java. .github/ - CI workflow and agent guidelines. Root: README.md, ARCHITECTURE.md, CONTRIBUTING.md, SUMMARY.md, LICENSE, pom.xml, cdk.json, mise.toml."
+}
