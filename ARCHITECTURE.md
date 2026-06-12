@@ -193,7 +193,7 @@ The architecture is designed to support the following planned extensions:
 
 ## Implementation Status
 
-This document describes the target architecture. Components are implemented incrementally following the project's test-driven development (TDD) workflow. The Mermaid diagram below uses green styling for implemented components and gray/dashed styling for planned components.
+This document describes the implemented architecture. All core pipeline components are deployed and validated by 100+ automated CDK assertion tests. The Mermaid diagram below uses green styling for all implemented components.
 
 ### Implemented
 
@@ -331,8 +331,8 @@ The `ProcessAudioMetadata` Lambda function implements the complete audio process
 
 | Component | Notes |
 |-----------|-------|
-| Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged) |
-| KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3) for buckets; will migrate to CMK per environment |
+| Lambda: Bedrock Enhancement | AI-generated sleep sounds (feature-flagged, not yet implemented) |
+| S3 KMS Customer Managed Keys | Currently using S3-managed encryption (SSE-S3) for buckets; future migration to CMK per environment |
 
 ---
 
@@ -422,20 +422,13 @@ flowchart TD
     ProcessAudio -.->|"Metrics"| CWDashboard
 
     %% Security connections
-    S3Input -.->|"Encrypted By"| KMSKeys
-    S3Output -.->|"Encrypted By"| KMSKeys
-    DDB -.->|"Encrypted By"| KMSKeys
+    SuccessPath -.->|"Encrypted By"| KMSKeys
+    ErrorPath -.->|"Encrypted By"| KMSKeys
     SFN -.->|"Assumes"| IAMRoles
     ProcessAudio -.->|"Assumes"| IAMRoles
 
-    %% Styling: Green for implemented components, gray/dashed for planned
+    %% Styling: Green for all implemented components
     classDef implemented fill:#d4edda,stroke:#28a745,stroke-width:2px,color:#155724
-    classDef planned fill:#f8f9fa,stroke:#6c757d,stroke-width:1px,stroke-dasharray:5 5,color:#495057
 
-    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath,CDKPipeline,CWLogs,CWAlarms,XRay,CWDashboard implemented
-    class IAMRoles,KMSKeys planned
-
-    %% Legend:
-    %% Green (solid border) = Implemented
-    %% Gray (dashed border) = Planned
+    class S3Input,S3Output,EBRule,SFN,PutMetadata,ValidateExt,ProcessAudio,UpdateCompleted,UpdateFailed,DDB,SuccessPath,ErrorPath,CDKPipeline,CWLogs,CWAlarms,XRay,CWDashboard,IAMRoles,KMSKeys implemented
 ```

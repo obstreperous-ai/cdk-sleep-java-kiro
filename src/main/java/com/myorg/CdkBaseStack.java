@@ -56,6 +56,13 @@ import software.amazon.awscdk.services.cloudwatch.actions.SnsAction;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Main infrastructure stack for the Sleep Audio Processing Pipeline.
+ *
+ * Deploys an event-driven pipeline that processes audio files uploaded to S3:
+ * S3 Input -> EventBridge -> Step Functions -> Lambda (Polly) -> S3 Output + DynamoDB
+ * with KMS-encrypted SNS notifications, CloudWatch observability, and X-Ray tracing.
+ */
 public class CdkBaseStack extends Stack {
     public CdkBaseStack(final Construct scope, final String id) {
         this(scope, id, null);
