@@ -19,6 +19,7 @@ A production-grade, event-driven sleep audio processing pipeline built with AWS 
 - [Multi-Environment Configuration](#multi-environment-configuration)
 - [Experiment Methodology](#experiment-methodology)
 - [Meta-Prompting Patterns](#meta-prompting-patterns)
+- [Experiment Design](#experiment-design)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [Further Reading](#further-reading)
@@ -277,6 +278,22 @@ See [META-PROMPTS.md](META-PROMPTS.md) for the complete collection of reusable p
 
 ---
 
+## Experiment Design
+
+This repository is one cell in a **5 languages x 3 AIs** experimental matrix evaluating AI-agent-driven infrastructure development. The experiment tests whether AI agents can produce production-quality IaC when given structured meta-prompts, strict TDD constraints, and architecture-as-source-of-truth workflows.
+
+Key aspects of the experimental design:
+
+- **Matrix**: 15 repositories total (Java, TypeScript, Python, Go, Terraform) x (Kiro, Claude, other AIs)
+- **Actor**: Kiro + Java CDK (this repository)
+- **Protocol**: Issue-driven TDD, 14 sequential issues from bootstrap to documentation
+- **Controls**: Same pipeline concept across all cells; agent guidelines and verification gates standardized
+- **Evaluation Criteria**: Code quality, process quality, agent effectiveness, language suitability, reproducibility
+
+See [EXPERIMENT.md](EXPERIMENT.md) for the comprehensive experiment design document including methodology, prompting patterns, issue history, key decisions, and preliminary observations.
+
+---
+
 ## Project Structure
 
 ```
@@ -344,6 +361,7 @@ AI agent contributors should also review [.github/AGENT_GUIDELINES.md](.github/A
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Full architecture, data flow, Mermaid diagram, security, cost analysis |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | TDD workflow, commit conventions, development setup |
 | [META-PROMPTS.md](META-PROMPTS.md) | Reusable meta-prompting patterns for AI-driven IaC development |
+| [EXPERIMENT.md](EXPERIMENT.md) | Experiment design, methodology, actors, observations, and evaluation criteria |
 | [SUMMARY.md](SUMMARY.md) | Key decisions, metrics, experiment notes, challenges |
 | [.github/AGENT_GUIDELINES.md](.github/AGENT_GUIDELINES.md) | Operational guidelines for AI agent contributors |
 
