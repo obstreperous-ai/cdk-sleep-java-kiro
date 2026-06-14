@@ -1,0 +1,12 @@
+{
+  "project_type": "Java CDK project (AWS CDK with Java bindings) - event-driven sleep audio processing pipeline",
+  "language": "Java 17 (CDK stacks), Python 3.12 (Lambda function)",
+  "build_system": "Maven 3.9+ with CDK CLI (npx cdk). NODE_OPTIONS must be cleared for CDK commands.",
+  "test_framework": "JUnit 5 with CDK assertions (Template.fromStack). 15 test files, 100+ assertions.",
+  "build_command": "mvn compile",
+  "test_command": "mvn test",
+  "verification_instructions": "Documentation-only change. No build/test required unless code files are modified.",
+  "setup_instructions": "Java 17, Maven 3.9+, Node.js 20+ required. Run 'mvn compile' to build.",
+  "environment_constraints": "NODE_OPTIONS must be cleared for CDK/jsii commands. No Docker required for testing.",
+  "contribution_requirements": "Conventional commits (feat/fix/chore/docs/refactor). TDD-first. Update ARCHITECTURE.md Mermaid diagram if structure changes."
+}

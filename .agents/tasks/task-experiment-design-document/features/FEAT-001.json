@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-001",
+  "type": "docs",
+  "description": "Create EXPERIMENT.md with comprehensive experiment design documentation and link it from README.md.",
+  "status": "completed",
+  "steps": [
+    "Create EXPERIMENT.md at project root with sections: Overview & Goals, Methodology, Actors & Setup, Prompting Patterns & Meta-Prompts, Issue History Summary, Key Decisions & Trade-offs, Preliminary Observations",
+    "Add link to EXPERIMENT.md in README.md Table of Contents",
+    "Add link to EXPERIMENT.md in README.md Further Reading table",
+    "Add a section reference in README.md pointing to EXPERIMENT.md"
+  ],
+  "acceptance_criteria": [
+    "EXPERIMENT.md exists at project root with comprehensive experiment design documentation",
+    "EXPERIMENT.md includes all required sections: Overview & Goals, Methodology, Actors & Setup, Prompting Patterns, Issue History, Key Decisions, Preliminary Observations",
+    "README.md Table of Contents links to EXPERIMENT.md",
+    "README.md Further Reading table includes EXPERIMENT.md",
+    "Document serves as foundation for final evaluation of the experiment"
+  ],
+  "verification": [],
+  "blocked_reason": null,
+  "findings": "Documentation-only change. Created EXPERIMENT.md (300+ lines) with comprehensive experiment design covering: Overview & Goals, Methodology (TDD, issue-driven, architecture-as-code), Actors & Setup (5x3 matrix), Prompting Patterns, Issue History (14 issues summarized), Key Decisions & Trade-offs (7 decisions), Preliminary Observations (strengths, challenges, comparative notes), Metrics, and Future Evaluation Criteria. Updated README.md with Table of Contents link, Experiment Design section, and Further Reading entry."
+}
