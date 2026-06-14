@@ -191,29 +191,52 @@ public class AdvancedErrorHandlingTest {
         JsonNode retriers = putMetadata.get("Retry");
         assertNotNull(retriers, "PutMetadataRecord should have Retry configuration");
 
-        // Find the retrier that includes DynamoDB errors
+        // Find the single retrier that contains all 3 DynamoDB/timeout error types
         boolean hasProvisionedThroughputExceeded = false;
         boolean hasInternalServerError = false;
         boolean hasStatesTimeout = false;
         int maxAttempts = 0;
+        boolean foundCombinedRetrier = false;
 
         for (JsonNode retrier : retriers) {
             JsonNode errors = retrier.get("ErrorEquals");
+            boolean retrierHasProvisioned = false;
+            boolean retrierHasInternal = false;
+            boolean retrierHasTimeout = false;
+
             for (JsonNode error : errors) {
                 String errorText = error.asText();
                 if ("DynamoDB.ProvisionedThroughputExceededException".equals(errorText)) {
-                    hasProvisionedThroughputExceeded = true;
-                    maxAttempts = retrier.get("MaxAttempts").asInt();
+                    retrierHasProvisioned = true;
                 }
                 if ("DynamoDB.InternalServerError".equals(errorText)) {
-                    hasInternalServerError = true;
+                    retrierHasInternal = true;
                 }
                 if ("States.Timeout".equals(errorText)) {
-                    hasStatesTimeout = true;
+                    retrierHasTimeout = true;
                 }
             }
+
+            if (retrierHasProvisioned && retrierHasInternal && retrierHasTimeout) {
+                foundCombinedRetrier = true;
+                hasProvisionedThroughputExceeded = true;
+                hasInternalServerError = true;
+                hasStatesTimeout = true;
+                JsonNode maxAttemptsNode = retrier.get("MaxAttempts");
+                assertNotNull(maxAttemptsNode,
+                    "Combined retrier should have MaxAttempts defined");
+                maxAttempts = maxAttemptsNode.asInt();
+                break;
+            }
+
+            // Track individual error presence in case they are split
+            if (retrierHasProvisioned) hasProvisionedThroughputExceeded = true;
+            if (retrierHasInternal) hasInternalServerError = true;
+            if (retrierHasTimeout) hasStatesTimeout = true;
         }
 
+        assertTrue(foundCombinedRetrier,
+            "PutMetadataRecord should have a single retrier containing all 3 error types");
         assertTrue(hasProvisionedThroughputExceeded,
             "PutMetadataRecord retry should include DynamoDB.ProvisionedThroughputExceededException");
         assertTrue(hasInternalServerError,

@@ -1,0 +1,23 @@
+{
+  "id": "FEAT-004",
+  "type": "fix",
+  "description": "Address review feedback: fix CI test summary to parse Surefire reports, tighten alarm action assertions, and make retry MaxAttempts extraction robust",
+  "status": "in_progress",
+  "steps": [
+    "Fix .github/workflows/ci.yml Test Summary step to parse target/surefire-reports/ instead of re-running mvn test",
+    "Update ObservabilityTest.java alarm action tests to use Match.arrayWith(List.of(Match.anyValue())) to verify at least one action exists",
+    "Update AdvancedErrorHandlingTest.java testPutMetadataRecordRetryConfiguration to add null-check for MaxAttempts and extract from the single retrier containing all 3 error types",
+    "Run mvn test to confirm all tests pass"
+  ],
+  "acceptance_criteria": [
+    "CI Test Summary step does not re-run mvn test",
+    "Alarm action tests verify array has at least one entry",
+    "Retry test has null-check for MaxAttempts and extracts from the combined retrier",
+    "All tests pass"
+  ],
+  "verification": [
+    "Run mvn test and confirm all tests pass"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}
