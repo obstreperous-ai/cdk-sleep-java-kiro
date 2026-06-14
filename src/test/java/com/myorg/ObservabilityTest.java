@@ -90,4 +90,27 @@ public class ObservabilityTest {
             "Period", 300
         )));
     }
+
+    @Test
+    public void testCloudWatchAlarmsHaveAlarmActions() {
+        template.hasResourceProperties("AWS::CloudWatch::Alarm", Match.objectLike(Map.of(
+            "MetricName", "ExecutionsFailed",
+            "AlarmActions", Match.anyValue()
+        )));
+    }
+
+    @Test
+    public void testLambdaAlarmHasAlarmActions() {
+        template.hasResourceProperties("AWS::CloudWatch::Alarm", Match.objectLike(Map.of(
+            "MetricName", "Errors",
+            "AlarmActions", Match.anyValue()
+        )));
+    }
+
+    @Test
+    public void testLogGroupHasOneWeekRetention() {
+        template.hasResourceProperties("AWS::Logs::LogGroup", Match.objectLike(Map.of(
+            "RetentionInDays", 7
+        )));
+    }
 }

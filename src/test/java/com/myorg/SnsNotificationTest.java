@@ -74,4 +74,11 @@ public class SnsNotificationTest {
             ))
         )));
     }
+
+    @Test
+    public void testKmsKeyHasKeyRotationEnabled() {
+        template.hasResourceProperties("AWS::KMS::Key", Match.objectLike(Map.of(
+            "EnableKeyRotation", true
+        )));
+    }
 }

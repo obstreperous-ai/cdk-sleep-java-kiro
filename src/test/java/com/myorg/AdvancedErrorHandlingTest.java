@@ -153,4 +153,74 @@ public class AdvancedErrorHandlingTest {
     private JsonNode getStateMachineDefinition() throws Exception {
         return TestUtils.getStateMachineDefinition(template);
     }
+
+    @Test
+    public void testFailurePathDynamoDbUpdateItemParameters() throws Exception {
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+        JsonNode updateFailed = states.get("UpdateMetadataStatusFailed");
+        assertNotNull(updateFailed, "UpdateMetadataStatusFailed state should exist");
+
+        JsonNode parameters = updateFailed.get("Parameters");
+        assertNotNull(parameters, "UpdateMetadataStatusFailed should have Parameters");
+
+        JsonNode expressionAttrValues = parameters.get("ExpressionAttributeValues");
+        assertNotNull(expressionAttrValues,
+            "UpdateMetadataStatusFailed Parameters should have ExpressionAttributeValues");
+
+        // Verify :status is set to FAILED
+        JsonNode statusValue = expressionAttrValues.get(":status");
+        assertNotNull(statusValue, "ExpressionAttributeValues should have :status");
+        assertEquals("FAILED", statusValue.get("S").asText(),
+            ":status should be set to 'FAILED'");
+
+        // Verify :errorInfo references $.error.Cause
+        JsonNode errorInfoValue = expressionAttrValues.get(":errorInfo");
+        assertNotNull(errorInfoValue, "ExpressionAttributeValues should have :errorInfo");
+        assertEquals("$.error.Cause", errorInfoValue.get("S.$").asText(),
+            ":errorInfo should reference '$.error.Cause'");
+    }
+
+    @Test
+    public void testPutMetadataRecordRetryConfiguration() throws Exception {
+        JsonNode definition = getStateMachineDefinition();
+        JsonNode states = definition.get("States");
+        JsonNode putMetadata = states.get("PutMetadataRecord");
+        assertNotNull(putMetadata, "PutMetadataRecord state should exist");
+
+        JsonNode retriers = putMetadata.get("Retry");
+        assertNotNull(retriers, "PutMetadataRecord should have Retry configuration");
+
+        // Find the retrier that includes DynamoDB errors
+        boolean hasProvisionedThroughputExceeded = false;
+        boolean hasInternalServerError = false;
+        boolean hasStatesTimeout = false;
+        int maxAttempts = 0;
+
+        for (JsonNode retrier : retriers) {
+            JsonNode errors = retrier.get("ErrorEquals");
+            for (JsonNode error : errors) {
+                String errorText = error.asText();
+                if ("DynamoDB.ProvisionedThroughputExceededException".equals(errorText)) {
+                    hasProvisionedThroughputExceeded = true;
+                    maxAttempts = retrier.get("MaxAttempts").asInt();
+                }
+                if ("DynamoDB.InternalServerError".equals(errorText)) {
+                    hasInternalServerError = true;
+                }
+                if ("States.Timeout".equals(errorText)) {
+                    hasStatesTimeout = true;
+                }
+            }
+        }
+
+        assertTrue(hasProvisionedThroughputExceeded,
+            "PutMetadataRecord retry should include DynamoDB.ProvisionedThroughputExceededException");
+        assertTrue(hasInternalServerError,
+            "PutMetadataRecord retry should include DynamoDB.InternalServerError");
+        assertTrue(hasStatesTimeout,
+            "PutMetadataRecord retry should include States.Timeout");
+        assertEquals(3, maxAttempts,
+            "PutMetadataRecord retry should have MaxAttempts=3");
+    }
 }

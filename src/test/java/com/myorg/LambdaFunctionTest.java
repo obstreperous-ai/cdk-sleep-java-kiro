@@ -136,4 +136,20 @@ public class LambdaFunctionTest {
         assertTrue(templateJson.contains("ProcessAudioMetadata"),
             "State machine definition should contain ProcessAudioMetadata task");
     }
+
+    @Test
+    public void testLambdaFunctionHasCorrectTimeout() {
+        template.hasResourceProperties("AWS::Lambda::Function", Match.objectLike(Map.of(
+            "Runtime", "python3.12",
+            "Timeout", 120
+        )));
+    }
+
+    @Test
+    public void testLambdaFunctionHasCorrectMemorySize() {
+        template.hasResourceProperties("AWS::Lambda::Function", Match.objectLike(Map.of(
+            "Runtime", "python3.12",
+            "MemorySize", 256
+        )));
+    }
 }
