@@ -1,57 +1,55 @@
 package com.myorg;
 
 import software.constructs.Construct;
+import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
-import software.amazon.awscdk.services.s3.Bucket;
-import software.amazon.awscdk.services.s3.BucketEncryption;
-import software.amazon.awscdk.services.s3.BlockPublicAccess;
-import software.amazon.awscdk.services.events.Rule;
-import software.amazon.awscdk.services.events.EventPattern;
-import software.amazon.awscdk.services.events.RuleTargetInput;
-import software.amazon.awscdk.services.events.targets.SfnStateMachine;
-import software.amazon.awscdk.services.logs.LogGroup;
-import software.amazon.awscdk.services.logs.RetentionDays;
-import software.amazon.awscdk.services.stepfunctions.DefinitionBody;
-import software.amazon.awscdk.services.stepfunctions.LogLevel;
-import software.amazon.awscdk.services.stepfunctions.LogOptions;
-import software.amazon.awscdk.services.stepfunctions.StateMachine;
-import software.amazon.awscdk.services.stepfunctions.tasks.CallAwsService;
-import software.amazon.awscdk.services.stepfunctions.tasks.SnsPublish;
-import software.amazon.awscdk.services.dynamodb.Table;
-import software.amazon.awscdk.services.dynamodb.BillingMode;
-import software.amazon.awscdk.services.dynamodb.Attribute;
-import software.amazon.awscdk.services.dynamodb.AttributeType;
-import software.amazon.awscdk.services.dynamodb.TableEncryption;
-import software.amazon.awscdk.services.stepfunctions.JsonPath;
-import software.amazon.awscdk.services.stepfunctions.Chain;
-import software.amazon.awscdk.services.stepfunctions.Choice;
-import software.amazon.awscdk.services.stepfunctions.Condition;
-import software.amazon.awscdk.services.stepfunctions.Pass;
-import software.amazon.awscdk.services.stepfunctions.Result;
-import software.amazon.awscdk.services.stepfunctions.RetryProps;
-import software.amazon.awscdk.services.stepfunctions.CatchProps;
-import software.amazon.awscdk.services.stepfunctions.TaskInput;
-import software.amazon.awscdk.services.sns.Topic;
-import software.amazon.awscdk.services.kms.Key;
-import software.amazon.awscdk.services.lambda.Code;
-import software.amazon.awscdk.services.lambda.Runtime;
-import software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke;
-
-import software.amazon.awscdk.services.iam.PolicyStatement;
-
-import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.Tags;
-import software.amazon.awscdk.services.lambda.Tracing;
 import software.amazon.awscdk.services.cloudwatch.Alarm;
 import software.amazon.awscdk.services.cloudwatch.ComparisonOperator;
 import software.amazon.awscdk.services.cloudwatch.Dashboard;
 import software.amazon.awscdk.services.cloudwatch.GraphWidget;
-import software.amazon.awscdk.services.cloudwatch.Metric;
 import software.amazon.awscdk.services.cloudwatch.MetricOptions;
 import software.amazon.awscdk.services.cloudwatch.TreatMissingData;
 import software.amazon.awscdk.services.cloudwatch.actions.SnsAction;
+import software.amazon.awscdk.services.dynamodb.Attribute;
+import software.amazon.awscdk.services.dynamodb.AttributeType;
+import software.amazon.awscdk.services.dynamodb.BillingMode;
+import software.amazon.awscdk.services.dynamodb.PointInTimeRecoverySpecification;
+import software.amazon.awscdk.services.dynamodb.Table;
+import software.amazon.awscdk.services.dynamodb.TableEncryption;
+import software.amazon.awscdk.services.events.EventPattern;
+import software.amazon.awscdk.services.events.Rule;
+import software.amazon.awscdk.services.events.RuleTargetInput;
+import software.amazon.awscdk.services.events.targets.SfnStateMachine;
+import software.amazon.awscdk.services.iam.PolicyStatement;
+import software.amazon.awscdk.services.kms.Key;
+import software.amazon.awscdk.services.lambda.Code;
+import software.amazon.awscdk.services.lambda.Runtime;
+import software.amazon.awscdk.services.lambda.Tracing;
+import software.amazon.awscdk.services.logs.LogGroup;
+import software.amazon.awscdk.services.logs.RetentionDays;
+import software.amazon.awscdk.services.s3.BlockPublicAccess;
+import software.amazon.awscdk.services.s3.Bucket;
+import software.amazon.awscdk.services.s3.BucketEncryption;
+import software.amazon.awscdk.services.sns.Topic;
+import software.amazon.awscdk.services.stepfunctions.CatchProps;
+import software.amazon.awscdk.services.stepfunctions.Chain;
+import software.amazon.awscdk.services.stepfunctions.Choice;
+import software.amazon.awscdk.services.stepfunctions.Condition;
+import software.amazon.awscdk.services.stepfunctions.DefinitionBody;
+import software.amazon.awscdk.services.stepfunctions.JsonPath;
+import software.amazon.awscdk.services.stepfunctions.LogLevel;
+import software.amazon.awscdk.services.stepfunctions.LogOptions;
+import software.amazon.awscdk.services.stepfunctions.Pass;
+import software.amazon.awscdk.services.stepfunctions.Result;
+import software.amazon.awscdk.services.stepfunctions.RetryProps;
+import software.amazon.awscdk.services.stepfunctions.StateMachine;
+import software.amazon.awscdk.services.stepfunctions.TaskInput;
+import software.amazon.awscdk.services.stepfunctions.tasks.CallAwsService;
+import software.amazon.awscdk.services.stepfunctions.tasks.LambdaInvoke;
+import software.amazon.awscdk.services.stepfunctions.tasks.SnsPublish;
 
 import java.util.List;
 import java.util.Map;
@@ -109,7 +107,9 @@ public class CdkBaseStack extends Stack {
                         .build())
                 .billingMode(BillingMode.PAY_PER_REQUEST)
                 .encryption(TableEncryption.DEFAULT)
-                .pointInTimeRecovery(true)
+                .pointInTimeRecoverySpecification(PointInTimeRecoverySpecification.builder()
+                        .pointInTimeRecoveryEnabled(true)
+                        .build())
                 .removalPolicy(RemovalPolicy.RETAIN)
                 .build();
 
@@ -140,7 +140,7 @@ public class CdkBaseStack extends Stack {
 
         // Grant Lambda Polly permissions
         audioProcessorFunction.addToRolePolicy(
-                software.amazon.awscdk.services.iam.PolicyStatement.Builder.create()
+                PolicyStatement.Builder.create()
                         .actions(List.of("polly:SynthesizeSpeech"))
                         .resources(List.of("*"))
                         .build()
