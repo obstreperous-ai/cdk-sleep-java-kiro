@@ -31,6 +31,14 @@ jobs:
       - name: Run tests
         run: mvn test
 
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          mvn test 2>&1 | grep -E 'Tests run:|BUILD' | tail -5 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Run CDK synth
         run: cdk synth
 
