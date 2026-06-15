@@ -31,6 +31,18 @@ jobs:
       - name: Run tests
         run: mvn test
 
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -d target/surefire-reports ]; then
+            grep -h 'Tests run:' target/surefire-reports/*.txt | tail -5 >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No Surefire reports found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Run CDK synth
         run: cdk synth
 

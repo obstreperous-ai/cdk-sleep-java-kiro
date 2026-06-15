@@ -7,6 +7,7 @@ import software.amazon.awscdk.assertions.Match;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
@@ -88,6 +89,59 @@ public class ObservabilityTest {
         template.hasResourceProperties("AWS::CloudWatch::Alarm", Match.objectLike(Map.of(
             "MetricName", "Errors",
             "Period", 300
+        )));
+    }
+
+    @Test
+    public void testCloudWatchAlarmsHaveAlarmActions() {
+        // Verify StateMachine alarm has at least one alarm action
+        Map<String, Map<String, Object>> alarms = template.findResources("AWS::CloudWatch::Alarm",
+            Match.objectLike(Map.of(
+                "Properties", Match.objectLike(Map.of(
+                    "MetricName", "ExecutionsFailed"
+                ))
+            )));
+        assertTrue(alarms.size() >= 1, "Should have at least one ExecutionsFailed alarm");
+        for (Map<String, Object> alarm : alarms.values()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> props = (Map<String, Object>) alarm.get("Properties");
+            assertNotNull(props.get("AlarmActions"), "ExecutionsFailed alarm should have AlarmActions");
+            assertTrue(props.get("AlarmActions") instanceof java.util.List,
+                "AlarmActions should be a list");
+            @SuppressWarnings("unchecked")
+            java.util.List<Object> actions = (java.util.List<Object>) props.get("AlarmActions");
+            assertTrue(actions.size() >= 1,
+                "ExecutionsFailed alarm should have at least one alarm action");
+        }
+    }
+
+    @Test
+    public void testLambdaAlarmHasAlarmActions() {
+        // Verify Lambda alarm has at least one alarm action
+        Map<String, Map<String, Object>> alarms = template.findResources("AWS::CloudWatch::Alarm",
+            Match.objectLike(Map.of(
+                "Properties", Match.objectLike(Map.of(
+                    "MetricName", "Errors"
+                ))
+            )));
+        assertTrue(alarms.size() >= 1, "Should have at least one Errors alarm");
+        for (Map<String, Object> alarm : alarms.values()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> props = (Map<String, Object>) alarm.get("Properties");
+            assertNotNull(props.get("AlarmActions"), "Errors alarm should have AlarmActions");
+            assertTrue(props.get("AlarmActions") instanceof java.util.List,
+                "AlarmActions should be a list");
+            @SuppressWarnings("unchecked")
+            java.util.List<Object> actions = (java.util.List<Object>) props.get("AlarmActions");
+            assertTrue(actions.size() >= 1,
+                "Errors alarm should have at least one alarm action");
+        }
+    }
+
+    @Test
+    public void testLogGroupHasOneWeekRetention() {
+        template.hasResourceProperties("AWS::Logs::LogGroup", Match.objectLike(Map.of(
+            "RetentionInDays", 7
         )));
     }
 }

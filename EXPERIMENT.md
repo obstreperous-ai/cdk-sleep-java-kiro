@@ -28,6 +28,7 @@ This document captures the experimental design, methodology, actors, prompting s
   - [Comparative Notes](#comparative-notes)
 - [Metrics](#metrics)
 - [Future Evaluation Criteria](#future-evaluation-criteria)
+- [Issue 15: Code Quality and Reflection Tidy-Up](#issue-15-code-quality-and-reflection-tidy-up)
 
 ---
 
@@ -354,7 +355,7 @@ While this document focuses on the Java/Kiro combination, some observations are 
 | Total pull requests | 13 (merged) |
 | Development period | 17 days (2026-05-28 to 2026-06-14) |
 | Test files | 15 |
-| Test assertions | 100+ |
+| Test assertions | 110+ |
 | AWS services | 10 |
 | Lines of Java (main) | ~300 (CdkBaseStack + CdkBaseApp + PipelineStack) |
 | Lines of Python (Lambda) | ~200 |
@@ -413,6 +414,47 @@ This document serves as the foundation for a final evaluation of the experiment.
 - Can another agent pick up where this one left off?
 - Are the meta-prompts sufficient to guide a new agent through similar work?
 - Is the documentation sufficient for a human to understand and maintain the system?
+
+---
+
+## Issue 15: Code Quality and Reflection Tidy-Up
+
+### Process
+
+Issue 15 focused on code quality improvements and test coverage expansion as a retrospective tidy-up pass over the completed pipeline. Three categories of work were performed:
+
+1. **Deprecated API migration** - Replaced the deprecated `pointInTimeRecovery(true)` builder method with the current `pointInTimeRecoverySpecification(PointInTimeRecoverySpecification.builder().pointInTimeRecoveryEnabled(true).build())` API, eliminating CDK deprecation warnings from the build output.
+
+2. **Import cleanup** - Removed unused imports (`PolicyStatement`, `Metric`) and organized import statements in `CdkBaseStack.java` to eliminate IDE warnings and improve readability.
+
+3. **Test coverage expansion** - Identified and addressed coverage gaps where resource configurations existed in the stack but had no corresponding assertion tests. Expanded the test suite from 104 to 112 tests.
+
+### Coverage Improvements
+
+The following specific gaps were identified and addressed with new tests:
+
+| Gap | Test Added | File |
+|-----|-----------|------|
+| Lambda resource limits (timeout/memory) | Validates 120s timeout and 256MB memory | `LambdaFunctionTest.java` |
+| KMS key rotation | Validates `EnableKeyRotation: true` | `SnsNotificationTest.java` |
+| CloudWatch alarm actions | Validates alarm actions route to SNS topic | `ObservabilityTest.java` |
+| LogGroup retention | Validates 7-day (ONE_WEEK) retention period | `ObservabilityTest.java` |
+| Failure path DynamoDB parameters | Validates UpdateMetadataStatusFailed sets status=FAILED and captures error cause | `AdvancedErrorHandlingTest.java` |
+| PutMetadataRecord retry config | Validates retry with correct error types and MaxAttempts=3 | `AdvancedErrorHandlingTest.java` |
+
+### Reflections
+
+Several observations emerged from this tidy-up process:
+
+1. **CDK deprecation warnings as code quality signals** - The deprecation warning for `pointInTimeRecovery` was visible in every test run but had been ignored throughout development. Treating compiler/framework warnings as actionable signals (rather than noise) is a practice that should be encoded into the agent workflow from the start.
+
+2. **Test suite as refactoring safety net** - The 104 existing tests provided confidence that the deprecated API migration did not change behavior. The test suite validated that `pointInTimeRecoverySpecification` produced identical CloudFormation output, confirming the migration was purely syntactic.
+
+3. **Testing configuration properties, not just existence** - The original test suite verified that resources existed (e.g., "there is a Lambda function") but often did not assert specific configuration values (e.g., "the Lambda has a 120s timeout"). The new tests demonstrate the pattern of validating resource properties, which catches configuration drift.
+
+4. **Gap between CDK assertion tests and runtime behavior** - CDK assertion tests validate the CloudFormation template structure but cannot test runtime behavior. The Python Lambda code (`index.py`) remains untested at the unit level -- it has no pytest suite validating Polly API calls, S3 operations, or error handling logic. This is the most significant remaining quality gap in the project.
+
+5. **Coverage metrics for IaC projects** - Traditional code coverage tools (JaCoCo) measure line/branch coverage of Java test code, which is less meaningful for CDK projects where tests are assertions about generated CloudFormation templates. A more useful metric is "percentage of resource properties with corresponding assertions," which is difficult to automate but valuable to track manually.
 
 ---
 
