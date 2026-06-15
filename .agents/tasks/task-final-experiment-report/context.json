@@ -1,0 +1,32 @@
+{
+  "project_type": "AWS CDK Java infrastructure project (event-driven sleep audio processing pipeline)",
+  "language": "Java 17 (CDK stacks) + Python 3.12 (Lambda)",
+  "build_system": "Maven 3.9+ with CDK CLI",
+  "test_framework": "JUnit 5 + CDK Assertions (Template.fromStack)",
+  "build_command": "mvn test (not available in this sandbox due to network constraints)",
+  "test_command": "mvn test (not available in this sandbox due to network constraints)",
+  "verification_instructions": "Manual code review only - Maven Central is not accessible in this sandbox",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Java 17, Maven 3.9+, Node.js 20+, AWS CDK CLI",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode but Maven Central is unreachable. Build/test cannot run. Report must be generated from code review alone.",
+  "contribution_requirements": "Conventional commits, TDD-first, architecture sync, verification gates",
+  "key_patterns": "CDK assertion tests using Template.fromStack, ObjectMapper for Step Functions JSON parsing, TestUtils shared helper, single stack architecture",
+  "relevant_files": [
+    "EXPERIMENT.md",
+    "ARCHITECTURE.md",
+    "SUMMARY.md",
+    "META-PROMPTS.md",
+    "README.md",
+    "CONTRIBUTING.md",
+    ".github/AGENT_GUIDELINES.md",
+    "src/main/java/com/myorg/CdkBaseStack.java",
+    "src/main/java/com/myorg/PipelineStack.java",
+    "src/main/java/com/myorg/CdkBaseApp.java",
+    "src/main/resources/lambda/audio-processor/index.py",
+    "src/test/java/com/myorg/ (all 15 test files + TestUtils.java)",
+    "pom.xml",
+    "cdk.json",
+    ".github/workflows/ci.yml"
+  ],
+  "directory_structure": "Standard Maven layout: src/main/java (CDK stacks), src/main/resources/lambda (Python Lambda), src/test/java (JUnit tests). Documentation at root. CI in .github/workflows."
+}
