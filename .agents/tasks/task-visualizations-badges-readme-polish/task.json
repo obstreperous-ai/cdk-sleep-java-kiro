@@ -1,0 +1,7 @@
+{
+  "task_id": "task-visualizations-badges-readme-polish",
+  "task_description": "Final polish for Issue #17: add supplementary Mermaid diagrams (TDD cycle, experiment matrix, issue timeline, test distribution), coverage/metrics badges, and enhanced README experiment framing with self-grading reference and reader call-to-action.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null
+}
