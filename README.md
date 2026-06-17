@@ -8,7 +8,7 @@
 ![Test Files](https://img.shields.io/badge/Test_Files-15-blue)
 ![AWS Services](https://img.shields.io/badge/AWS_Services-10-purple)
 ![Issues Completed](https://img.shields.io/badge/Issues_Completed-14%2F14-success)
-![Human Code](https://img.shields.io/badge/Human_Code-0_lines-critical)
+![Human Code](https://img.shields.io/badge/Human_Code-0_lines-blueviolet)
 
 A production-grade, event-driven sleep audio processing pipeline built with AWS CDK (Java). This project demonstrates **strict Test-Driven Development (TDD) for Infrastructure as Code**, driven entirely by AI-assisted agentic development from issue to pull request.
 
@@ -333,15 +333,15 @@ gantt
     title Development Timeline (17 days)
     dateFormat YYYY-MM-DD
     section Foundation
-        Issues 1-2 (Bootstrap + Architecture) :done, f1, 2025-05-28, 2025-06-01
+        Issues 1-2 (Bootstrap + Architecture) :done, f1, 2026-05-28, 2026-06-01
     section Core Infrastructure
-        Issues 3-7 (S3, DynamoDB, Lambda, StepFn, EventBridge) :done, c1, 2025-06-02, 2025-06-07
+        Issues 3-7 (S3, DynamoDB, Lambda, StepFn, EventBridge) :done, c1, 2026-06-02, 2026-06-07
     section Integration
-        Issues 8-9 (Wiring + End-to-End) :done, i1, 2025-06-08, 2025-06-09
+        Issues 8-9 (Wiring + End-to-End) :done, i1, 2026-06-08, 2026-06-09
     section Production Hardening
-        Issues 10-11 (Error Handling + Observability) :done, p1, 2025-06-10, 2025-06-11
+        Issues 10-11 (Error Handling + Observability) :done, p1, 2026-06-10, 2026-06-11
     section Documentation
-        Issues 12-14 (Docs + Report) :done, d1, 2025-06-12, 2025-06-14
+        Issues 12-14 (Docs + Report) :done, d1, 2026-06-12, 2026-06-14
 ```
 
 ---
@@ -390,15 +390,22 @@ The experiment is designed for transparent comparison. All artifacts, commit his
 ## Test Distribution
 
 ```mermaid
-pie title Test Assertions by Category (112 total)
-    "Resource Tests (31)" : 31
-    "Integration Tests (28)" : 28
-    "Flow Tests (13)" : 13
-    "End-to-End Tests (13)" : 13
-    "Observability Tests (11)" : 11
-    "Regression Tests (7)" : 7
-    "Environment Tests (5)" : 5
-    "Pipeline Tests (4)" : 4
+pie title Test Assertions per File (112 total)
+    "LambdaFunctionTest (12)" : 12
+    "ObservabilityTest (11)" : 11
+    "PipelineWiringTest (10)" : 10
+    "AudioProcessingTest (10)" : 10
+    "ComprehensiveEndToEndTest (8)" : 8
+    "DynamoDbMetadataTest (8)" : 8
+    "InputValidationTest (8)" : 8
+    "AdvancedErrorHandlingTest (8)" : 8
+    "SnsNotificationTest (7)" : 7
+    "SnapshotTest (7)" : 7
+    "CdkBaseTest (5)" : 5
+    "MultiEnvironmentTest (5)" : 5
+    "StepFunctionsTest (5)" : 5
+    "PipelineConstructTest (4)" : 4
+    "EndToEndFlowTest (4)" : 4
 ```
 
 ---
