@@ -4,6 +4,11 @@
 ![CDK Version](https://img.shields.io/badge/AWS_CDK-%5B2.255.0%2C3.0.0%29-orange)
 ![Java](https://img.shields.io/badge/Java-17-blue)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
+![Tests](https://img.shields.io/badge/Tests-112_assertions-brightgreen)
+![Test Files](https://img.shields.io/badge/Test_Files-15-blue)
+![AWS Services](https://img.shields.io/badge/AWS_Services-10-purple)
+![Issues Completed](https://img.shields.io/badge/Issues_Completed-14%2F14-success)
+![Human Code](https://img.shields.io/badge/Human_Code-0_lines-blueviolet)
 
 A production-grade, event-driven sleep audio processing pipeline built with AWS CDK (Java). This project demonstrates **strict Test-Driven Development (TDD) for Infrastructure as Code**, driven entirely by AI-assisted agentic development from issue to pull request.
 
@@ -20,6 +25,8 @@ A production-grade, event-driven sleep audio processing pipeline built with AWS 
 - [Experiment Methodology](#experiment-methodology)
 - [Meta-Prompting Patterns](#meta-prompting-patterns)
 - [Experiment Design](#experiment-design)
+- [Experiment Results and Self-Grading](#experiment-results-and-self-grading)
+- [Test Distribution](#test-distribution)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [Further Reading](#further-reading)
@@ -235,6 +242,18 @@ Every feature in this project was developed through the following cycle:
 5. **Pull Request** - Changes are submitted as a PR with conventional commit messages
 6. **Architecture Sync** - ARCHITECTURE.md is updated to reflect any structural changes
 
+### TDD Cycle
+
+```mermaid
+flowchart LR
+    A["1. Write Failing Test"] --> B["2. Confirm Failure"]
+    B --> C["3. Implement Minimum Code"]
+    C --> D["4. All Tests Pass"]
+    D --> E["5. CDK Synth Pass"]
+    E --> F["6. Refactor"]
+    F --> A
+```
+
 ### Core Principles
 
 | Principle | Description |
@@ -291,6 +310,103 @@ Key aspects of the experimental design:
 - **Evaluation Criteria**: Code quality, process quality, agent effectiveness, language suitability, reproducibility
 
 See [EXPERIMENT.md](EXPERIMENT.md) for the comprehensive experiment design document including methodology, prompting patterns, issue history, key decisions, and preliminary observations.
+
+### Experiment Matrix
+
+```mermaid
+block-beta
+    columns 4
+    space:1 Kiro Claude Other
+    Java["Java (CDK)"] JK["This Repo"] JC[" "] JO[" "]
+    TypeScript["TypeScript (CDK)"] TK[" "] TC[" "] TO[" "]
+    Python["Python (CDK)"] PK[" "] PC[" "] PO[" "]
+    Go["Go (CDK)"] GK[" "] GC[" "] GO[" "]
+    Terraform TFK[" "] TFC[" "] TFO[" "]
+
+    style JK fill:#4caf50,color:#fff
+```
+
+### Issue Progression Timeline
+
+```mermaid
+gantt
+    title Development Timeline (17 days)
+    dateFormat YYYY-MM-DD
+    section Foundation
+        Issues 1-2 (Bootstrap + Architecture) :done, f1, 2026-05-28, 2026-06-01
+    section Core Infrastructure
+        Issues 3-7 (S3, DynamoDB, Lambda, StepFn, EventBridge) :done, c1, 2026-06-02, 2026-06-07
+    section Integration
+        Issues 8-9 (Wiring + End-to-End) :done, i1, 2026-06-08, 2026-06-09
+    section Production Hardening
+        Issues 10-11 (Error Handling + Observability) :done, p1, 2026-06-10, 2026-06-11
+    section Documentation
+        Issues 12-14 (Docs + Report) :done, d1, 2026-06-12, 2026-06-14
+```
+
+---
+
+## Experiment Results and Self-Grading
+
+This section summarizes the quantitative outcomes and the AI's self-assessment of its own work. For the complete analysis, see [FINAL-REPORT.md](FINAL-REPORT.md).
+
+### Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| Test Assertions | 112 |
+| Test Files | 15 |
+| AWS Services Covered | 10 |
+| Issues Completed Autonomously | 14/14 |
+| Development Duration | 17 days |
+| Human Code Lines Written | 0 |
+
+### Self-Grading Verdicts
+
+The AI agent evaluated its own work across five dimensions (from [FINAL-REPORT.md](FINAL-REPORT.md)):
+
+| Dimension | Verdict |
+|-----------|---------|
+| Code Quality | Strong |
+| Process Quality | Excellent |
+| Agent Effectiveness | Strong |
+| Language Suitability | Adequate |
+| Reproducibility | Strong |
+
+### Draw Your Own Conclusions
+
+The self-grading above is the AI's own assessment of its work and may carry inherent bias. Readers are encouraged to:
+
+- Review the [source code](src/main/java/com/myorg/CdkBaseStack.java) and [test files](src/test/java/com/myorg/) directly
+- Examine the [FINAL-REPORT.md](FINAL-REPORT.md) for detailed evidence supporting each verdict
+- Compare this repository against other cells in the 5x3 experiment matrix
+- Form an independent opinion on code quality, test coverage, and process discipline
+- Consider what "production-quality" means for AI-generated infrastructure code
+
+The experiment is designed for transparent comparison. All artifacts, commit history, and issue discussions remain public for scrutiny.
+
+---
+
+## Test Distribution
+
+```mermaid
+pie title Test Assertions per File (112 total)
+    "LambdaFunctionTest (12)" : 12
+    "ObservabilityTest (11)" : 11
+    "PipelineWiringTest (10)" : 10
+    "AudioProcessingTest (10)" : 10
+    "ComprehensiveEndToEndTest (8)" : 8
+    "DynamoDbMetadataTest (8)" : 8
+    "InputValidationTest (8)" : 8
+    "AdvancedErrorHandlingTest (8)" : 8
+    "SnsNotificationTest (7)" : 7
+    "SnapshotTest (7)" : 7
+    "CdkBaseTest (5)" : 5
+    "MultiEnvironmentTest (5)" : 5
+    "StepFunctionsTest (5)" : 5
+    "PipelineConstructTest (4)" : 4
+    "EndToEndFlowTest (4)" : 4
+```
 
 ---
 
@@ -362,6 +478,7 @@ AI agent contributors should also review [.github/AGENT_GUIDELINES.md](.github/A
 | [CONTRIBUTING.md](CONTRIBUTING.md) | TDD workflow, commit conventions, development setup |
 | [META-PROMPTS.md](META-PROMPTS.md) | Reusable meta-prompting patterns for AI-driven IaC development |
 | [EXPERIMENT.md](EXPERIMENT.md) | Experiment design, methodology, actors, observations, and evaluation criteria |
+| [FINAL-REPORT.md](FINAL-REPORT.md) | Self-evaluation and grading: code quality, process, agent effectiveness, language suitability |
 | [SUMMARY.md](SUMMARY.md) | Key decisions, metrics, experiment notes, challenges |
 | [.github/AGENT_GUIDELINES.md](.github/AGENT_GUIDELINES.md) | Operational guidelines for AI agent contributors |
 

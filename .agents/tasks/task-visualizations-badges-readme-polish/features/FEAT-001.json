@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-001",
+  "type": "docs",
+  "description": "Enhance README.md with supplementary Mermaid diagrams, coverage/metrics badges, prominent experiment framing, self-grading reference, and a call-to-action inviting readers to draw their own conclusions. Also add a TDD cycle diagram and experiment matrix visualization.",
+  "status": "completed",
+  "steps": [
+    "Add new badges after the existing 4 badges in README.md: (1) a 'Tests: 112 assertions' badge using shields.io static badge, (2) a 'Test Files: 15' badge, (3) an 'AWS Services: 10' badge, (4) an 'Issues Completed: 14/14' badge showing AI autonomy, (5) a 'Human Code: 0 lines' badge emphasizing no human intervention",
+    "Add a new Mermaid diagram in the 'Experiment Methodology' section showing the TDD cycle as a circular flowchart: Write Failing Test -> Confirm Failure -> Implement Minimum Code -> All Tests Pass -> CDK Synth Pass -> Refactor -> (back to Write Failing Test). Use appropriate Mermaid styling.",
+    "Add a new Mermaid diagram in the 'Experiment Design' section showing the 5x3 experiment matrix as a quadrant chart or table-like visual, highlighting this repository's position (Java + Kiro) in the matrix",
+    "Add a new Mermaid diagram showing issue progression as a timeline or Gantt chart: 5 phases (Foundation, Core Infrastructure, Integration, Production Hardening, Documentation) with their issue ranges and dates",
+    "Add a new section '## Experiment Results and Self-Grading' between 'Experiment Design' and 'Project Structure' that: (a) summarizes the key metrics from FINAL-REPORT.md (112 assertions, 15 test files, 14/14 issues completed autonomously, 17 days, 0 human code lines), (b) references the self-grading verdicts from FINAL-REPORT.md (Code Quality: Strong, Process Quality: Excellent, Agent Effectiveness: Strong, Language Suitability: Adequate, Reproducibility: Strong), (c) links to FINAL-REPORT.md for the full assessment",
+    "Add a 'Draw Your Own Conclusions' subsection within the new section that invites readers to review the code, tests, and documentation themselves and form their own opinion. Reference that the self-grading is the AI's own assessment and may be biased. Encourage comparing with other cells in the experiment matrix.",
+    "Add a new Mermaid pie chart showing test distribution by category: Resource Tests (33), Integration Tests (28), Flow Tests (17), End-to-End Tests (13), Environment Tests (5), Pipeline Tests (4), Regression Tests (7), Observability Tests (11) - using actual counts from FINAL-REPORT.md",
+    "Update the 'Further Reading' table to include FINAL-REPORT.md with description 'Self-evaluation and grading: code quality, process, agent effectiveness, language suitability'",
+    "Ensure all new content integrates smoothly with existing README structure and table of contents. Add new TOC entries for any new sections."
+  ],
+  "acceptance_criteria": [
+    "README.md has at least 5 new metric badges beyond the existing 4 (CI, CDK, Java, License)",
+    "README.md contains at least 3 new Mermaid diagrams (TDD cycle, experiment timeline, test distribution)",
+    "A new section clearly frames the project as an AI experiment with self-grading results and a call-to-action",
+    "FINAL-REPORT.md is referenced and linked from the new section",
+    "All existing README content remains intact and functional",
+    "Table of contents is updated with new section entries",
+    "Running 'mvn test' still passes (documentation changes should not affect tests)"
+  ],
+  "verification": [
+    "Run 'mvn test' and confirm all 112 tests still pass",
+    "Visually inspect README.md for correct Mermaid syntax (no unclosed blocks, proper diagram types)",
+    "Confirm all badge URLs use valid shields.io format",
+    "Confirm table of contents links match new section anchors"
+  ],
+  "blocked_reason": null,
+  "findings": "Documentation-only change completed successfully. Maven tests could not be run due to Maven Central being unreachable (network timeout on repo.maven.apache.org) in the sandbox environment, but since only README.md was modified, this cannot affect test outcomes. All Mermaid diagrams use valid syntax (flowchart LR, block-beta, gantt, pie). Badge URLs use standard shields.io static badge format. Review fixes applied: (1) pie chart switched from unverifiable category groupings to per-file test counts (verified via grep -c @Test), sums to exactly 112; (2) Human Code badge color changed from critical (red) to blueviolet (positive/neutral); (3) Gantt chart dates corrected from 2025 to 2026 to match EXPERIMENT.md development period (2026-05-28 to 2026-06-13)."
+}

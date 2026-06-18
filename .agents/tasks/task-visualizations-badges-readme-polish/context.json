@@ -1,0 +1,22 @@
+{
+  "project_type": "AWS CDK (Java) sleep audio processing pipeline - AI-driven TDD experiment",
+  "language": "Java 17",
+  "build_system": "Maven 3.9+ with NODE_OPTIONS clearing for jsii compatibility",
+  "test_framework": "JUnit 5 + CDK Assertions (15 test files, 112 assertions)",
+  "build_command": "mvn test",
+  "test_command": "mvn test",
+  "verification_instructions": "1. Run 'mvn test' to ensure all 112 CDK assertion tests pass. 2. Run 'NODE_OPTIONS=\"\" npx cdk synth' to verify CloudFormation synthesis. Documentation-only changes should not affect these.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "Java 17 via mise, Maven 3.9+, Node.js 20+. Run 'mvn compile' then 'mvn test'.",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - can pull from Maven Central. No Docker daemon needed. NODE_OPTIONS must be cleared for CDK commands.",
+  "contribution_requirements": "Conventional commits, TDD-first workflow, architecture sync required for structural changes. CONTRIBUTING.md has full details.",
+  "key_patterns": "README already has 4 badges (CI, CDK Version, Java, License), Mermaid flowchart LR diagram, experiment methodology section, links to ARCHITECTURE.md and EXPERIMENT.md. FINAL-REPORT.md has quantitative metrics (112 assertions, 15 test files, 10 AWS services, 14 issues, 17 days). EXPERIMENT.md has full methodology and 5x3 matrix description.",
+  "relevant_files": [
+    "README.md",
+    "ARCHITECTURE.md",
+    "FINAL-REPORT.md",
+    "EXPERIMENT.md",
+    "SUMMARY.md"
+  ],
+  "directory_structure": "src/main/java/com/myorg/ (CDK stacks), src/main/resources/lambda/ (Python Lambda), src/test/java/com/myorg/ (15 test files), .github/workflows/ci.yml (CI)"
+}
